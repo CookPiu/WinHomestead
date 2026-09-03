@@ -16,7 +16,7 @@ public sealed class PathSkeletonTask : TaskBase
 
     public override TaskMetadata Metadata { get; } = new(Id, "path", "建立数据盘目录骨架",
         "在数据盘创建 Applications / DevCache / Data / Temp / Models / VMs / Games，后续迁移任务都以此为目标。已存在的目录会被复用。",
-        RiskFlags.Reversible, Array.Empty<string>(), 100);
+        RiskFlags.Reversible, new[] { ShrinkAndCreateTask.Id }, 100);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a);
 

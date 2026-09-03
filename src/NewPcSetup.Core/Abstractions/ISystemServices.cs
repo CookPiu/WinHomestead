@@ -58,6 +58,36 @@ public interface IFileSystem
     bool TryDeleteFile(string path);
 }
 
+public sealed record PartitionInfo(int DiskNumber, int PartitionNumber, string? DriveLetter, long SizeBytes, long OffsetBytes);
+public sealed record ShrinkSupport(long SizeMin, long SizeMax);
+
+public sealed class StorageException : Exception
+{
+    public StorageException(string operation, uint code, string? extendedStatus)
+        : base($"{operation} 失败，返回码 {code}{(string.IsNullOrEmpty(extendedStatus) ? string.Empty : "：" + extendedStatus)}")
+    {
+        Operation = operation; Code = code;
+    }
+    public string Operation { get; }
+    public uint Code { get; }
+}
+
+/// <summary>
+/// 分区操作（WMI root\Microsoft\Windows\Storage）。全部不可撤销，不经 journal；只有 disk.* 任务使用。
+/// 永远不提供删除、移动、合并分区的方法。
+/// </summary>
+public interface IStorage
+{
+    PartitionInfo? GetPartition(string driveLetter);
+    /// <summary>MSFT_Partition.GetSupportedSize：该分区可缩到的最小尺寸与可扩到的最大尺寸。</summary>
+    ShrinkSupport GetSupportedSize(PartitionInfo partition);
+    void Resize(PartitionInfo partition, long newSizeBytes);
+    /// <summary>在磁盘剩余的最大连续空闲空间上新建基本数据分区并分配盘符。</summary>
+    PartitionInfo CreatePartitionUsingMaximumSize(int diskNumber, char driveLetter);
+    void FormatNtfs(PartitionInfo partition, string label);
+    IReadOnlyList<string> UsedDriveLetters();
+}
+
 /// <summary>电源配置。首版只覆盖休眠开关（powercfg /hibernate）。</summary>
 public interface IPower
 {

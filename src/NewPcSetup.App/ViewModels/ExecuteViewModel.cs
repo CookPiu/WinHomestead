@@ -65,7 +65,15 @@ public sealed partial class ExecuteViewModel : ObservableObject
         var status = new Progress<string>(s => Status = s);
         try
         {
-            var result = await Task.Run(() => _services.Coordinator.Execute(session.Plan!, _services.Catalog, session.Snapshot!, progress, status, _cts.Token));
+            var resume = session.Resume;
+            if (resume != null && resume.Unfinished)
+            {
+                foreach (var r in resume.Result?.Results ?? System.Array.Empty<TaskResult>()) Results.Add(new ResultRow(r));
+                session.Resume = null;
+            }
+            var result = await Task.Run(() => resume != null && resume.Unfinished
+                ? _services.Coordinator.Continue(resume, _services.Catalog, progress, status, _cts.Token)
+                : _services.Coordinator.Execute(session.Plan!, _services.Catalog, session.Snapshot!, progress, status, _cts.Token));
             session.Result = result;
             Status = result.Aborted ? "已中止" : "执行完成";
         }

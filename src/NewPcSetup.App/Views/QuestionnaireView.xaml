@@ -26,7 +26,12 @@
           <ComboBox ItemsSource="{Binding UsageOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding Usage}" MinWidth="320" />
 
           <TextBlock Style="{StaticResource Q}" Text="2. 数据盘（软件、文档、缓存都放这里）" />
-          <ComboBox ItemsSource="{Binding DataDriveOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DataDrive}" MinWidth="320" />
+          <ComboBox ItemsSource="{Binding DataDriveOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DataDrive}" MinWidth="320"
+                    Visibility="{Binding ShowDriveList, Converter={StaticResource BooleanToVisibilityConverter}}" />
+          <StackPanel Visibility="{Binding OfferPartition, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBlock Style="{StaticResource Muted}" Text="{Binding PartitionText}" Margin="0,0,0,6" />
+            <ui:ToggleSwitch Content="按建议分区（压缩 C 盘并新建数据盘）" IsChecked="{Binding CreatePartition}" />
+          </StackPanel>
 
           <TextBlock Style="{StaticResource Q}" Text="3. 界面风格" />
           <ComboBox ItemsSource="{Binding UiStyleOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding UiStyle}" MinWidth="320" />

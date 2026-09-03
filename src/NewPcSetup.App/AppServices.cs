@@ -35,7 +35,7 @@ public sealed class AppServices
         var logger = new FileLogger(store.LogDir);
         var registry = new WindowsRegistry();
         var shell = new WindowsShell();
-        var execution = new ExecutionServices(registry, new WindowsEnvironment(registry), shell, new WindowsFileSystem(), new WindowsPower(registry), logger);
+        var execution = new ExecutionServices(registry, new WindowsEnvironment(registry), shell, new WindowsFileSystem(), new WindowsPower(registry), new WmiStorage(logger), logger);
         var collector = new SnapshotCollector(registry, shell, logger);
         var coordinator = new ExecutionCoordinator(execution, new WmiSystemRestore(logger), store);
         return new AppServices(store, logger, execution, collector, coordinator, new Planner(execution), new InstalledPrograms(registry), SoftwareCatalog.LoadEmbedded());
@@ -49,4 +49,8 @@ public sealed class SessionState
     public Answers? Answers { get; set; }
     public Plan? Plan { get; set; }
     public ExecutionResult? Result { get; set; }
+    /// <summary>启动时判定的续跑会话（UC-12）；正常启动为 null。</summary>
+    public ResumeSession? Resume { get; set; }
 }
+
+public enum StartupMode { Normal, Continue, Reverify }

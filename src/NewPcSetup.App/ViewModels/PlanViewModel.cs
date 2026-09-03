@@ -57,6 +57,7 @@ public sealed partial class PlanItemViewModel : ObservableObject
         if ((item.Risk & RiskFlags.NeedsSignOut) != 0) risks.Add("注销后生效");
         if ((item.Risk & RiskFlags.NeedsReboot) != 0) risks.Add("需重启");
         if ((item.Risk & RiskFlags.AdminOnly) != 0) risks.Add("系统级");
+        if ((item.Risk & RiskFlags.PromptOnly) != 0) risks.Add("只提示");
         if ((item.Risk & (RiskFlags.Reversible | RiskFlags.PromptOnly)) == 0) risks.Add("不可撤销");
         RiskLabel = string.Join(" · ", risks);
         _suppress = true;
@@ -73,7 +74,9 @@ public sealed class PlanGroupViewModel
         Module = module;
         Title = module switch
         {
+            "disk" => "分区",
             "path" => "磁盘与路径",
+            "gpu" => "显卡",
             "env" => "开发缓存迁移",
             "ui" => "界面与交互",
             "ime" => "中文输入法",

@@ -65,6 +65,20 @@ public sealed class FakeShell : IShell
     public void UnpinFromQuickAccess(string path) => Pinned.Remove(path);
 }
 
+public sealed class FakeStorage : IStorage
+{
+    public PartitionInfo? System = new(0, 2, "C:", 500L << 30, 1L << 30);
+    public long SizeMin = 100L << 30;
+    public readonly List<string> Calls = new();
+    public readonly List<string> Letters = new() { "C:" };
+    public PartitionInfo? GetPartition(string driveLetter) => string.Equals(driveLetter, "C:", StringComparison.OrdinalIgnoreCase) ? System : null;
+    public ShrinkSupport GetSupportedSize(PartitionInfo p) => new(SizeMin, p.SizeBytes);
+    public void Resize(PartitionInfo p, long newSizeBytes) { Calls.Add($"resize:{newSizeBytes >> 30}"); System = p with { SizeBytes = newSizeBytes }; }
+    public PartitionInfo CreatePartitionUsingMaximumSize(int diskNumber, char driveLetter) { Calls.Add($"create:{driveLetter}"); Letters.Add(driveLetter + ":"); return new PartitionInfo(diskNumber, 3, driveLetter + ":", 1, 1); }
+    public void FormatNtfs(PartitionInfo p, string label) => Calls.Add($"format:{p.DriveLetter}:{label}");
+    public IReadOnlyList<string> UsedDriveLetters() => Letters;
+}
+
 public sealed class FakePower : IPower
 {
     public bool Hibernate = true;
@@ -115,6 +129,19 @@ public static class TestData
     public static Answers Answers(EnvironmentSnapshot s, UiStyle style = UiStyle.Win11Default, bool promo = false, ImeMode ime = ImeMode.ChineseDefault, bool keepShift = true)
         => new(Usage.Dev, s.DataDrive, false, style, false, ime, keepShift, promo);
 
+    /// <summary>单盘无数据分区的全新机：1 TB 盘，C 500 GB 已用 40 GB。</summary>
+    public static EnvironmentSnapshot SingleDiskFresh(long diskBytes = 1000L << 30, long usedBytes = 40L << 30, bool mdm = false, int installedDaysAgo = 2)
+    {
+        var s = Snapshot(dataDrive: null, false, isLaptop: false, mdm: mdm);
+        var size = 500L << 30;
+        return s with
+        {
+            Disks = new[] { new DiskInfo(0, "NVMe", diskBytes, "NVMe") },
+            Volumes = new[] { new VolumeInfo("C:", "Windows", size, size - usedBytes, true) },
+            InstallDate = DateTime.Now.AddDays(-installedDaysAgo),
+        };
+    }
+
     public static (ExecutionServices Services, FakeRegistry Reg, FakeEnvironment Env, FakeShell Shell, FakeFileSystem Fs) Services()
     {
         var (svc, reg, env, shell, fs, _) = ServicesWithPower();
@@ -123,7 +150,13 @@ public static class TestData
 
     public static (ExecutionServices Services, FakeRegistry Reg, FakeEnvironment Env, FakeShell Shell, FakeFileSystem Fs, FakePower Power) ServicesWithPower()
     {
-        var reg = new FakeRegistry(); var env = new FakeEnvironment(); var shell = new FakeShell(); var fs = new FakeFileSystem(); var power = new FakePower();
-        return (new ExecutionServices(reg, env, shell, fs, power, NullLogger.Instance), reg, env, shell, fs, power);
+        var (svc, reg, env, shell, fs, power, _) = ServicesFull();
+        return (svc, reg, env, shell, fs, power);
+    }
+
+    public static (ExecutionServices Services, FakeRegistry Reg, FakeEnvironment Env, FakeShell Shell, FakeFileSystem Fs, FakePower Power, FakeStorage Storage) ServicesFull()
+    {
+        var reg = new FakeRegistry(); var env = new FakeEnvironment(); var shell = new FakeShell(); var fs = new FakeFileSystem(); var power = new FakePower(); var storage = new FakeStorage();
+        return (new ExecutionServices(reg, env, shell, fs, power, storage, NullLogger.Instance), reg, env, shell, fs, power, storage);
     }
 }

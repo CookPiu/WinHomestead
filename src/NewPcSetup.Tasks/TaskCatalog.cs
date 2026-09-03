@@ -34,6 +34,10 @@ public static class TaskCatalog
     {
         var list = new List<ITask>
         {
+            // ---- 磁盘 ----
+            new DiskSuggestTask(),
+            new ShrinkAndCreateTask(),
+
             // ---- 路径 ----
             new PathSkeletonTask(),
             new KnownFolderTask(KnownFolder.Documents, "Documents", "文档", 110),
@@ -119,6 +123,9 @@ public static class TaskCatalog
             Reg("promo.ad_id", "promo", "关闭广告 ID 与定制体验", "应用不再通过广告 ID 投放个性化广告，系统不再基于诊断数据推送定制内容。", RiskFlags.Reversible, 404, Promo,
                 Dword(@"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", 0),
                 Dword(@"Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", 0)),
+
+            // ---- GPU ----
+            new HagsTask(),
 
             // ---- C 盘治理 ----
             new TempCleanupTask(),

@@ -10,9 +10,9 @@ namespace NewPcSetup.Core.Engine;
 /// <summary>原生服务集合。Runner 与 Planner 用它为每个任务创建 TaskContext。</summary>
 public sealed class ExecutionServices
 {
-    public ExecutionServices(IRegistry registry, IEnvironment environment, IShell shell, IFileSystem fileSystem, IPower power, ILogger logger)
+    public ExecutionServices(IRegistry registry, IEnvironment environment, IShell shell, IFileSystem fileSystem, IPower power, IStorage storage, ILogger logger)
     {
-        Registry = registry; Environment = environment; Shell = shell; FileSystem = fileSystem; Power = power; Logger = logger;
+        Registry = registry; Environment = environment; Shell = shell; FileSystem = fileSystem; Power = power; Storage = storage; Logger = logger;
     }
 
     public IRegistry Registry { get; }
@@ -20,6 +20,7 @@ public sealed class ExecutionServices
     public IShell Shell { get; }
     public IFileSystem FileSystem { get; }
     public IPower Power { get; }
+    public IStorage Storage { get; }
     public ILogger Logger { get; }
 
     public TaskContext CreateContext(string taskId, EnvironmentSnapshot snapshot, Answers answers, IJournal journal, CancellationToken ct)
@@ -43,6 +44,7 @@ public sealed class TaskContext
         Shell = new JournalingShell(raw.Shell, journal, taskId);
         FileSystem = new JournalingFileSystem(raw.FileSystem, journal, taskId);
         Power = new JournalingPower(raw.Power, journal, taskId);
+        Storage = raw.Storage;
         Log = raw.Logger;
     }
 
@@ -56,6 +58,8 @@ public sealed class TaskContext
     public IShell Shell { get; }
     public IFileSystem FileSystem { get; }
     public IPower Power { get; }
+    /// <summary>分区操作不可撤销，不经 journal。</summary>
+    public IStorage Storage { get; }
     public ILogger Log { get; }
     public IList<string> ManualSteps { get; } = new List<string>();
 

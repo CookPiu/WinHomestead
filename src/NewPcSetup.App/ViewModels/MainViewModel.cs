@@ -18,14 +18,35 @@ public sealed partial class MainViewModel : ObservableObject
     private object? _wizardPage;
     private int _stepIndex;
 
-    public MainViewModel(AppServices services)
+    public MainViewModel(AppServices services, StartupMode mode = StartupMode.Normal)
     {
         _services = services;
         Steps = new ObservableCollection<StepItem>
         {
             new("1 电脑信息"), new("2 问卷"), new("3 方案预览"), new("4 执行"), new("5 报告"),
         };
-        GoTo(0);
+        var resume = services.Session.Resume;
+        if (mode != StartupMode.Normal && resume != null)
+        {
+            services.Session.Snapshot = resume.Snapshot;
+            services.Session.Answers = resume.Plan.Answers;
+            services.Session.Plan = resume.Plan;
+            services.Session.Result = resume.Result;
+        }
+        switch (mode)
+        {
+            case StartupMode.Continue when resume != null:
+                GoTo(3);
+                break;
+            case StartupMode.Reverify when resume != null:
+                try { services.Session.Result = services.Coordinator.Reverify(resume, services.Catalog); }
+                catch (System.Exception ex) { services.Logger.Error("重启后复核失败", ex); }
+                GoTo(4);
+                break;
+            default:
+                GoTo(0);
+                break;
+        }
     }
 
     public ObservableCollection<StepItem> Steps { get; }

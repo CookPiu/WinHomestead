@@ -17,7 +17,11 @@
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel>
         <ui:InfoBar IsOpen="{Binding RebootRequired, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="需要重启"
-                    Message="部分改动在重启后生效。你可以现在重启，也可以稍后手动重启。" Margin="0,0,0,8" />
+                    Message="部分改动在重启后生效。点“立即重启”会在重启后自动打开本工具确认结果；也可以稍后手动重启。" Margin="0,0,0,8">
+          <ui:InfoBar.Content>
+            <ui:Button Content="立即重启" Appearance="Primary" Command="{Binding RebootNowCommand}" Margin="0,0,0,8" />
+          </ui:InfoBar.Content>
+        </ui:InfoBar>
         <ui:InfoBar IsOpen="{Binding SignOutSuggested, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="建议注销一次"
                     Message="环境变量、输入法和鼠标类设置对新启动的程序生效；注销再登录后全部生效。" Margin="0,0,0,8" />
 
