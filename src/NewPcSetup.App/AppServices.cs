@@ -12,9 +12,9 @@ namespace NewPcSetup.App;
 public sealed class AppServices
 {
     private AppServices(StateStore store, FileLogger logger, ExecutionServices execution, SnapshotCollector collector,
-        ExecutionCoordinator coordinator, Planner planner, InstalledPrograms installed, SoftwareCatalog software)
+        ExecutionCoordinator coordinator, SessionRunner runner, Planner planner, InstalledPrograms installed, SoftwareCatalog software)
     {
-        Store = store; Logger = logger; Execution = execution; Collector = collector; Coordinator = coordinator;
+        Store = store; Logger = logger; Execution = execution; Collector = collector; Coordinator = coordinator; Runner = runner;
         Planner = planner; Installed = installed; Software = software;
     }
 
@@ -23,6 +23,7 @@ public sealed class AppServices
     public ExecutionServices Execution { get; }
     public SnapshotCollector Collector { get; }
     public ExecutionCoordinator Coordinator { get; }
+    public SessionRunner Runner { get; }
     public Planner Planner { get; }
     public InstalledPrograms Installed { get; }
     public SoftwareCatalog Software { get; }
@@ -37,20 +38,20 @@ public sealed class AppServices
         var shell = new WindowsShell();
         var execution = new ExecutionServices(registry, new WindowsEnvironment(registry), shell, new WindowsFileSystem(), new WindowsPower(registry), new WmiStorage(logger), logger);
         var collector = new SnapshotCollector(registry, shell, logger);
-        var coordinator = new ExecutionCoordinator(execution, new WmiSystemRestore(logger), store);
-        return new AppServices(store, logger, execution, collector, coordinator, new Planner(execution), new InstalledPrograms(registry), SoftwareCatalog.LoadEmbedded());
+        var coordinator = new ExecutionCoordinator(execution, store);
+        var runner = new SessionRunner(execution, new WmiSystemRestore(logger), store);
+        return new AppServices(store, logger, execution, collector, coordinator, runner, new Planner(execution), new InstalledPrograms(registry), SoftwareCatalog.LoadEmbedded());
     }
 }
 
-/// <summary>向导各页共享的会话状态。</summary>
+/// <summary>各页共享的会话状态。</summary>
 public sealed class SessionState
 {
     public EnvironmentSnapshot? Snapshot { get; set; }
     public Answers? Answers { get; set; }
     public Plan? Plan { get; set; }
-    public ExecutionResult? Result { get; set; }
-    /// <summary>启动时判定的续跑会话（UC-12）；正常启动为 null。</summary>
-    public ResumeSession? Resume { get; set; }
+    /// <summary>重启后复核（--resume）得到的上次结果；正常启动为 null。</summary>
+    public ExecutionResult? PreviousResult { get; set; }
 }
 
-public enum StartupMode { Normal, Continue, Reverify }
+public enum StartupMode { Normal, Reverify }

@@ -1,4 +1,4 @@
-# Debug 构建 + 单元测试。前置：D:\Applications\dotnet 下有 .NET 10 SDK。
+﻿# Debug 构建 + 单元测试。前置：D:\Applications\dotnet 下有 .NET 10 SDK。
 param([switch]$NoTest)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent

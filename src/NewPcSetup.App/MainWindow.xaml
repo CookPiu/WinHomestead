@@ -7,7 +7,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="新机开荒" Width="980" Height="680" MinWidth="840" MinHeight="580"
+        Title="新机开荒" Width="1100" Height="740" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica"
@@ -21,55 +21,31 @@
 
     <ui:TitleBar Grid.Row="0" Title="新机开荒" />
 
-    <!-- 步骤条 + 独立入口 -->
-    <Grid Grid.Row="1" Margin="28,6,28,0">
+    <!-- 顶部导航：主列表常驻，其余为子页 -->
+    <Grid Grid.Row="1" Margin="28,4,28,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <ItemsControl ItemsSource="{Binding Steps}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <Border Padding="10,4" Margin="0,0,6,0" CornerRadius="12">
-              <Border.Style>
-                <Style TargetType="Border">
-                  <Setter Property="Background" Value="Transparent" />
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                      <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Border.Style>
-              <TextBlock Text="{Binding Label}" FontSize="12">
-                <TextBlock.Style>
-                  <Style TargetType="TextBlock">
-                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-                    <Style.Triggers>
-                      <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                        <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
-                        <Setter Property="FontWeight" Value="SemiBold" />
-                      </DataTrigger>
-                      <DataTrigger Binding="{Binding IsDone}" Value="True">
-                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                      </DataTrigger>
-                    </Style.Triggers>
-                  </Style>
-                </TextBlock.Style>
-              </TextBlock>
-            </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <ui:Button Content="← 返回列表" Appearance="Secondary" Command="{Binding HomeCommand}" HorizontalAlignment="Left">
+        <ui:Button.Style>
+          <Style TargetType="ui:Button">
+            <Setter Property="Visibility" Value="Visible" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsHome}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </ui:Button.Style>
+      </ui:Button>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <ui:Button Content="执行记录" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowReportCommand}" />
         <ui:Button Content="软件入口" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowSoftwareCommand}" />
         <ui:Button Content="C 盘" Appearance="Secondary" Command="{Binding ShowStorageCommand}" />
       </StackPanel>
     </Grid>
 
-    <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="28,16,28,20" Focusable="False" />
+    <ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="28,12,28,20" Focusable="False" />
   </Grid>
 </ui:FluentWindow>

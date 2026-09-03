@@ -64,12 +64,13 @@ public class ShrinkAndCreateTaskTests
 
         var disk = plan.Items.Single(i => i.TaskId == ShrinkAndCreateTask.Id);
         Assert.Equal(PlanState.Planned, disk.State);
-        Assert.True(disk.Checked);
+        Assert.False(disk.Checked); // 不可撤销：列出但不标推荐
         Assert.Contains("压缩 C: 到 240 GB", disk.TargetValue);
-        Assert.DoesNotContain(plan.Items, i => i.TaskId == DiskSuggestTask.Id);
         var skeleton = plan.Items.Single(i => i.TaskId == PathSkeletonTask.Id);
-        Assert.True(skeleton.Checked);
+        Assert.Equal(PlanState.Planned, skeleton.State);
         Assert.Contains(ShrinkAndCreateTask.Id, skeleton.DependsOn);
+        plan = PlanEditor.SetChecked(plan, ShrinkAndCreateTask.Id, true);
+        Assert.True(plan.Items.Single(i => i.TaskId == ShrinkAndCreateTask.Id).Checked);
 
         plan = PlanEditor.SetChecked(plan, ShrinkAndCreateTask.Id, false);
         Assert.False(plan.Items.Single(i => i.TaskId == PathSkeletonTask.Id).Checked);
@@ -127,53 +128,79 @@ public class HagsTaskTests
     }
 }
 
-public class ResumeTests
+public class SessionRunnerTests
 {
-    private sealed class NoopRestore : ISystemRestore { public bool CreateRestorePoint(string d) => true; }
+    private sealed class NoopRestore : ISystemRestore { public int Calls; public bool CreateRestorePoint(string d) { Calls++; return true; } }
 
-    private static RegistryValueTask Dword(string id, string name, RiskFlags risk = RiskFlags.Reversible)
-        => new(new TaskMetadata(id, "ui", id, id, risk, Array.Empty<string>(), 1), new[] { RegistryEntry.Dword("K", name, 1) });
+    private static RegistryValueTask Dword(string id, string name, RiskFlags risk = RiskFlags.Reversible, string[]? deps = null)
+        => new(new TaskMetadata(id, "ui", id, id, risk, deps ?? Array.Empty<string>(), id == "parent" ? 1 : 2), new[] { RegistryEntry.Dword("K", name, 1) });
 
     [Fact]
-    public void ContinueSkipsFinishedTasks_ReverifyPromotesNeedsReboot()
+    public void RunOne_ExecutesUnmetParentFirst_RestorePointOnce_ResultsPersisted_ReverifyAfterReboot()
     {
         var dir = Path.Combine(Path.GetTempPath(), "NewPcSetupTests", Guid.NewGuid().ToString("N"));
         var store = new StateStore(dir);
         try
         {
-            var (svc, reg, _, _, _) = TestData.Services();
-            var coordinator = new ExecutionCoordinator(svc, new NoopRestore(), store);
+            var (svc, reg, _, shell, _) = TestData.Services();
+            var restore = new NoopRestore();
+            var runner = new SessionRunner(svc, restore, store);
             var s = TestData.Snapshot();
             var a = TestData.Answers(s);
-            var tasks = new ITask[] { Dword("t.a", "A"), Dword("t.b", "B", RiskFlags.Reversible | RiskFlags.NeedsReboot) };
+            var tasks = new ITask[]
+            {
+                Dword("parent", "P", RiskFlags.Reversible | RiskFlags.NeedsExplorerRestart),
+                Dword("child", "C", RiskFlags.Reversible | RiskFlags.NeedsReboot, new[] { "parent" }),
+                Dword("other", "O"),
+            };
             var plan = new Planner(svc).Build(tasks, s, a);
+            runner.SavePlan(plan, s);
 
-            // 模拟崩溃：t.a 已完成并落盘为部分结果，state 仍为 pending
-            store.Save($"plan-{plan.Id}.json", plan);
-            store.Save($"snapshot-{plan.Id}.json", s);
-            store.Save($"result-{plan.Id}.json", new ExecutionResult(plan.Id, DateTime.Now, null, false, false,
-                new[] { new TaskResult("t.a", "t.a", TaskOutcome.Done, null, 1, Array.Empty<string>()) }));
-            store.SaveState(new AppState(plan.Id, true));
-            reg.Seed(RegRoot.CurrentUser, "K", "A", 1, RegKind.DWord);
+            var results = runner.Run("child", plan, tasks, s, null, null, CancellationToken.None);
+            Assert.Equal(new[] { "parent", "child" }, results.Select(r => r.TaskId).ToArray());
+            Assert.Equal(1, reg.GetValue(RegRoot.CurrentUser, "K", "P").Value);
+            Assert.Equal(1, reg.GetValue(RegRoot.CurrentUser, "K", "C").Value);
+            Assert.Null(reg.GetValue(RegRoot.CurrentUser, "K", "O").Value);
+            Assert.True(runner.ExplorerRestartPending);
+            Assert.Equal(0, shell.ExplorerRestarts);
+            Assert.True(runner.RebootPending);
+            Assert.Equal(1, restore.Calls);
 
-            var session = coordinator.LoadLast();
-            Assert.NotNull(session);
-            Assert.True(session!.Unfinished);
-
-            var result = coordinator.Continue(session, tasks, null, null, CancellationToken.None);
-            Assert.Equal(new[] { "t.a", "t.b" }, result.Results.Select(r => r.TaskId).ToArray());
-            Assert.Equal(TaskOutcome.NeedsReboot, result.Results[1].Outcome);
-            Assert.True(result.RebootRequired);
-            Assert.NotNull(result.FinishedAt);
+            // 父项已满足后再执行其它项：不重复执行父项，还原点不重复创建
+            plan = new Planner(svc).Build(tasks, s, a);
+            var second = runner.Run("other", plan, tasks, s, null, null, CancellationToken.None);
+            Assert.Single(second);
+            Assert.Equal(1, restore.Calls);
+            Assert.Equal(3, runner.Results.Count);
             Assert.False(store.LoadState().PendingResume);
-            Assert.Equal(1, reg.GetValue(RegRoot.CurrentUser, "K", "B").Value);
 
-            var after = coordinator.LoadLast()!;
-            Assert.False(after.Unfinished);
-            var verified = coordinator.Reverify(after, tasks);
-            Assert.Equal(TaskOutcome.Done, verified.Results[1].Outcome);
+            runner.RestartExplorer();
+            Assert.Equal(1, shell.ExplorerRestarts);
+            Assert.False(runner.ExplorerRestartPending);
+
+            // 重启后复核
+            var coordinator = new ExecutionCoordinator(svc, store);
+            var last = coordinator.LoadLast();
+            Assert.NotNull(last);
+            Assert.False(last!.Unfinished);
+            Assert.Equal(3, last.Result!.Results.Count);
+            var verified = coordinator.Reverify(last, tasks);
+            Assert.Equal(TaskOutcome.Done, verified.Results.Single(r => r.TaskId == "child").Outcome);
             Assert.False(verified.RebootRequired);
         }
         finally { try { Directory.Delete(dir, true); } catch { } }
+    }
+
+    [Fact]
+    public void ChainFor_IncludesOnlyPlannedAncestors()
+    {
+        var items = new[]
+        {
+            new PlanItem("a", "m", "a", "", PlanState.Skipped, false, null, null, RiskFlags.None, null, Array.Empty<string>()),
+            new PlanItem("b", "m", "b", "", PlanState.Planned, true, null, null, RiskFlags.None, null, new[] { "a" }),
+            new PlanItem("c", "m", "c", "", PlanState.Planned, true, null, null, RiskFlags.None, null, new[] { "b" }),
+        };
+        var plan = new Plan("p", DateTime.Now, new Answers("D:", false), items);
+        Assert.Equal(new[] { "b", "c" }, SessionRunner.ChainFor("c", plan).OrderBy(x => x).ToArray());
     }
 }

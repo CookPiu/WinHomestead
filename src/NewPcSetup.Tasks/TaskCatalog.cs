@@ -21,12 +21,12 @@ public static class TaskCatalog
     private static readonly RiskFlags SignOutRisk = RiskFlags.Reversible | RiskFlags.NeedsSignOut;
     private static readonly string[] NoDeps = Array.Empty<string>();
 
-    private static bool Win10Like(EnvironmentSnapshot s, Answers a) => a.UiStyle == UiStyle.Win10Like;
-    private static bool Promo(EnvironmentSnapshot s, Answers a) => a.DisablePromotions;
+    /// <summary>风格类、去推送类条目不再由问卷开关，全部列出，但默认不标“推荐”。</summary>
+    private static bool Optional(EnvironmentSnapshot s, Answers a) => false;
 
     private static RegistryValueTask Reg(string id, string module, string name, string desc, RiskFlags risk, int order,
-        Func<EnvironmentSnapshot, Answers, bool>? applicable, params RegistryEntry[] entries)
-        => new(new TaskMetadata(id, module, name, desc, risk, NoDeps, order), entries, applicable);
+        Func<EnvironmentSnapshot, Answers, bool>? recommended, params RegistryEntry[] entries)
+        => new(new TaskMetadata(id, module, name, desc, risk, NoDeps, order), entries, null, recommended);
 
     public static IReadOnlyList<ITask> All { get; } = Build();
 
@@ -63,6 +63,15 @@ public static class TaskCatalog
             new EnvVarTask("pub", "Flutter / Dart", new[] { new EnvVarTask.Var("PUB_CACHE", @"DevCache\pub-cache") }, 139),
             new EnvVarTask("hf", "Hugging Face", new[] { new EnvVarTask.Var("HF_HOME", @"Models\huggingface") }, 140),
             new EnvVarTask("ollama", "Ollama", new[] { new EnvVarTask.Var("OLLAMA_MODELS", @"Models\ollama") }, 141),
+            // Android SDK 与 AVD 镜像不是缓存，删掉要重新下载，因此带 LegacyDir：旧位置已有内容时整项不适用
+            new EnvVarTask("android", "Android SDK / AVD", new[]
+            {
+                new EnvVarTask.Var("ANDROID_HOME", @"Applications\AndroidSdk", @"%LOCALAPPDATA%\Android\Sdk"),
+                new EnvVarTask.Var("ANDROID_USER_HOME", @"DevCache\android", @"%USERPROFILE%\.android"),
+                new EnvVarTask.Var("ANDROID_AVD_HOME", @"VMs\android-avd", @"%USERPROFILE%\.android\avd"),
+            }, 144),
+            new MavenSettingsTask(),
+            new CondaRcTask(),
 
             // ---- 界面：默认执行 ----
             Reg("ui.file_ext", "ui", "显示文件扩展名", "资源管理器显示所有文件的扩展名，避免双扩展名伪装。", UiRisk, 200, null,
@@ -84,43 +93,40 @@ public static class TaskCatalog
             Reg("ui.sticky_keys", "ui", "关闭粘滞键/切换键快捷键", "连按五次 Shift 不再弹出粘滞键，按住 Num Lock 不再弹出切换键。注销后生效。", SignOutRisk, 208, null,
                 Str(@"Control Panel\Accessibility\StickyKeys", "Flags", "506"), Str(@"Control Panel\Accessibility\ToggleKeys", "Flags", "58")),
 
-            // ---- 界面：问卷决定 ----
-            Reg("ui.taskbar_left", "ui", "任务栏左对齐", "任务栏图标靠左排列（Windows 10 风格）。", UiRisk, 220, Win10Like,
+            // ---- 界面：风格偏好（可选，按需执行） ----
+            Reg("ui.taskbar_left", "ui", "任务栏左对齐", "任务栏图标靠左排列（Windows 10 风格）。", UiRisk, 220, Optional,
                 Dword(Adv, "TaskbarAl", 0)),
-            Reg("ui.taskview_widgets", "ui", "隐藏任务视图与小组件按钮", "从任务栏移除“任务视图”和“小组件”按钮，功能仍可通过快捷键使用。", UiRisk, 221, Win10Like,
+            Reg("ui.taskview_widgets", "ui", "隐藏任务视图与小组件按钮", "从任务栏移除“任务视图”和“小组件”按钮，功能仍可通过快捷键使用。", UiRisk, 221, Optional,
                 Dword(Adv, "ShowTaskViewButton", 0), Dword(Adv, "TaskbarDa", 0)),
-            Reg("ui.classic_menu", "ui", "恢复经典右键菜单", "右键直接显示完整菜单，不再需要点“显示更多选项”。", UiRisk, 222, Win10Like,
+            Reg("ui.classic_menu", "ui", "恢复经典右键菜单", "右键直接显示完整菜单，不再需要点“显示更多选项”。", UiRisk, 222, Optional,
                 Str(@"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32", "", "")),
-            Reg("ui.start_layout", "ui", "开始菜单显示更多固定项", "开始菜单缩小“推荐”区域，给固定的应用更多空间。", UiRisk, 223, Win10Like,
+            Reg("ui.start_layout", "ui", "开始菜单显示更多固定项", "开始菜单缩小“推荐”区域，给固定的应用更多空间。", UiRisk, 223, Optional,
                 Dword(Adv, "Start_Layout", 1)),
-            Reg("ui.dark_mode", "ui", "深色模式", "系统与应用均使用深色主题。", RiskFlags.Reversible, 224, (s, a) => a.DarkMode,
+            Reg("ui.dark_mode", "ui", "深色模式", "系统与应用均使用深色主题。", RiskFlags.Reversible, 224, Optional,
                 Dword(Personalize, "AppsUseLightTheme", 0), Dword(Personalize, "SystemUsesLightTheme", 0)),
 
             // ---- 中文输入法（值含义来自社区整理：Default Mode 0 中文/1 英文；English Switch Key 0 Shift/1 Ctrl/2 关闭；
             //      EnableChineseEnglishPunctuationSwitch 1 开/0 关，对应 Ctrl+. 标点切换）----
-            Reg("ime.default_english", "ime", "微软拼音默认英文模式", "微软拼音启动时处于英文输入状态，需要中文时再切换。适合以英文/代码输入为主的用户。", SignOutRisk, 300,
-                (s, a) => a.ImeMode == ImeMode.EnglishDefault,
+            Reg("ime.default_english", "ime", "微软拼音默认英文模式", "微软拼音启动时处于英文输入状态，需要中文时再切换。适合以英文/代码输入为主的用户。", SignOutRisk, 300, Optional,
                 Dword(ImeChs, "Default Mode", 1)),
-            Reg("ime.punct_hotkey", "ime", "关闭微软拼音 Ctrl+. 标点切换", "Ctrl+. 在多数编辑器里是常用快捷键，关闭输入法对它的占用，避免误切中英文标点。", SignOutRisk, 301,
-                (s, a) => a.ImeMode == ImeMode.EnglishDefault,
+            Reg("ime.punct_hotkey", "ime", "关闭微软拼音 Ctrl+. 标点切换", "Ctrl+. 在多数编辑器里是常用快捷键，关闭输入法对它的占用，避免误切中英文标点。", SignOutRisk, 301, Optional,
                 Dword(ImeChs, "EnableChineseEnglishPunctuationSwitch", 0)),
-            Reg("ime.shift_switch", "ime", "关闭微软拼音 Shift 键切换中英文", "单击 Shift 不再切换中英文，只用 Win+空格 或 Ctrl+空格 切换，避免误触。", SignOutRisk, 302,
-                (s, a) => !a.KeepShiftSwitch,
+            Reg("ime.shift_switch", "ime", "关闭微软拼音 Shift 键切换中英文", "单击 Shift 不再切换中英文，只用 Win+空格 或 Ctrl+空格 切换，避免误触。", SignOutRisk, 302, Optional,
                 Dword(ImeChs, "English Switch Key", 2)),
 
-            // ---- 可选：去推送（默认不勾选，由问卷开启） ----
-            Reg("promo.lockscreen", "promo", "关闭锁屏聚焦与趣味信息", "锁屏不再轮播 Windows 聚焦图片与提示。", RiskFlags.Reversible, 400, Promo,
+            // ---- 可选：去推送（不标推荐，按需执行） ----
+            Reg("promo.lockscreen", "promo", "关闭锁屏聚焦与趣味信息", "锁屏不再轮播 Windows 聚焦图片与提示。", RiskFlags.Reversible, 400, Optional,
                 Dword(Cdm, "RotatingLockScreenEnabled", 0), Dword(Cdm, "RotatingLockScreenOverlayEnabled", 0)),
-            Reg("promo.suggestions", "promo", "关闭系统建议与推荐安装", "关闭开始菜单/设置页的建议内容、提示通知，以及自动静默安装推荐应用。", UiRisk, 401, Promo,
+            Reg("promo.suggestions", "promo", "关闭系统建议与推荐安装", "关闭开始菜单/设置页的建议内容、提示通知，以及自动静默安装推荐应用。", UiRisk, 401, Optional,
                 Dword(Cdm, "SubscribedContent-338388Enabled", 0), Dword(Cdm, "SubscribedContent-338389Enabled", 0),
                 Dword(Cdm, "SubscribedContent-338393Enabled", 0), Dword(Cdm, "SubscribedContent-353694Enabled", 0),
                 Dword(Cdm, "SubscribedContent-353696Enabled", 0), Dword(Cdm, "SilentInstalledAppsEnabled", 0),
                 Dword(Cdm, "SystemPaneSuggestionsEnabled", 0), Dword(Cdm, "SoftLandingEnabled", 0)),
-            Reg("promo.start_recommend", "promo", "关闭开始菜单推荐区", "开始菜单不再显示“推荐的项目”。", UiRisk, 402, Promo,
+            Reg("promo.start_recommend", "promo", "关闭开始菜单推荐区", "开始菜单不再显示“推荐的项目”。", UiRisk, 402, Optional,
                 Dword(Adv, "Start_IrisRecommendations", 0)),
-            Reg("promo.bing_search", "promo", "关闭任务栏搜索联网结果", "任务栏搜索只搜本机，不再显示必应结果和搜索高亮。", UiRisk, 403, Promo,
+            Reg("promo.bing_search", "promo", "关闭任务栏搜索联网结果", "任务栏搜索只搜本机，不再显示必应结果和搜索高亮。", UiRisk, 403, Optional,
                 Dword(Search, "BingSearchEnabled", 0), Dword(@"Software\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled", 0)),
-            Reg("promo.ad_id", "promo", "关闭广告 ID 与定制体验", "应用不再通过广告 ID 投放个性化广告，系统不再基于诊断数据推送定制内容。", RiskFlags.Reversible, 404, Promo,
+            Reg("promo.ad_id", "promo", "关闭广告 ID 与定制体验", "应用不再通过广告 ID 投放个性化广告，系统不再基于诊断数据推送定制内容。", RiskFlags.Reversible, 404, Optional,
                 Dword(@"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", 0),
                 Dword(@"Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", 0)),
 

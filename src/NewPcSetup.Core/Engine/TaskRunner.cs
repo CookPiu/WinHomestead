@@ -15,7 +15,7 @@ public sealed class TaskRunner
     public TaskRunner(ExecutionServices services) { _services = services; }
 
     public ExecutionResult Run(Plan plan, IReadOnlyList<ITask> catalog, EnvironmentSnapshot snapshot, IJournal journal,
-        IProgress<RunnerProgress>? progress, CancellationToken ct)
+        IProgress<RunnerProgress>? progress, CancellationToken ct, bool restartExplorer = true)
     {
         var log = _services.Logger;
         var started = DateTime.Now;
@@ -73,7 +73,7 @@ public sealed class TaskRunner
             if (aborted) break;
         }
 
-        if (explorer)
+        if (explorer && restartExplorer)
         {
             try { log.Info("重启 Explorer"); _services.Shell.RestartExplorer(); }
             catch (Exception ex) { log.Warn("重启 Explorer 失败: " + ex.Message); }

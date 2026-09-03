@@ -206,17 +206,16 @@ public class CatalogTests
     }
 
     [Fact]
-    public void PromoTasksOnlyWhenRequested_Win10TasksOnlyForWin10Style()
+    public void OptionalTasksAlwaysListed_ButNotRecommended()
     {
         var (svc, _, _, _, _) = TestData.Services();
         var s = TestData.Snapshot();
-        var def = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
-        Assert.DoesNotContain(def.Items, i => i.Module == "promo");
-        Assert.DoesNotContain(def.Items, i => i.TaskId == "ui.classic_menu");
-
-        var opt = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s, UiStyle.Win10Like, promo: true));
-        Assert.Contains(opt.Items, i => i.Module == "promo");
-        Assert.Contains(opt.Items, i => i.TaskId == "ui.classic_menu");
+        var plan = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
+        Assert.Contains(plan.Items, i => i.Module == "promo");
+        Assert.All(plan.Items.Where(i => i.Module == "promo"), i => Assert.False(i.Checked));
+        Assert.False(plan.Items.Single(i => i.TaskId == "ui.classic_menu").Checked);
+        Assert.False(plan.Items.Single(i => i.TaskId == "ime.default_english").Checked);
+        Assert.True(plan.Items.Single(i => i.TaskId == "ui.file_ext").Checked);
     }
 }
 
@@ -227,7 +226,7 @@ public class SerializationTests
     {
         var (svc, _, _, _, _) = TestData.Services();
         var s = TestData.Snapshot("D:", true, "pip");
-        var plan = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s, UiStyle.Win10Like, true));
+        var plan = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
 
         var planJson = JsonSerializer.Serialize(plan, JsonDefaults.Options);
         var plan2 = JsonSerializer.Deserialize<Plan>(planJson, JsonDefaults.Options)!;

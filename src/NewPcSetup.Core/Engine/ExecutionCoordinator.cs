@@ -8,66 +8,18 @@ using NewPcSetup.Core.Models;
 
 namespace NewPcSetup.Core.Engine;
 
-/// <summary>执行前后的收尾：还原点、journal 文件、状态持久化。</summary>
+/// <summary>跨会话的收尾：读取上次记录、重启后复核“需重启”项。逐项执行本身见 SessionRunner。</summary>
 public sealed class ExecutionCoordinator
 {
     private readonly ExecutionServices _services;
-    private readonly ISystemRestore _restore;
     private readonly StateStore _store;
 
-    public ExecutionCoordinator(ExecutionServices services, ISystemRestore restore, StateStore store)
+    public ExecutionCoordinator(ExecutionServices services, StateStore store)
     {
-        _services = services; _restore = restore; _store = store;
+        _services = services; _store = store;
     }
 
-    public ExecutionResult Execute(Plan plan, IReadOnlyList<ITask> catalog, EnvironmentSnapshot snapshot,
-        IProgress<RunnerProgress>? progress, IProgress<string>? status, CancellationToken ct)
-    {
-        var log = _services.Logger;
-        status?.Report("正在创建系统还原点…");
-        try
-        {
-            if (!_restore.CreateRestorePoint("NewPcSetup " + plan.Id))
-                log.Warn("系统拒绝创建还原点（可能未开启系统保护），继续执行");
-        }
-        catch (Exception ex) { log.Warn("创建还原点异常: " + ex.Message); }
-
-        _store.Save($"plan-{plan.Id}.json", plan);
-        _store.Save($"snapshot-{plan.Id}.json", snapshot);
-        _store.SaveState(new AppState(plan.Id, true));
-
-        var journal = new FileJournal(_store.PathFor($"journal-{plan.Id}.jsonl"));
-        status?.Report("正在执行…");
-        var result = RunSaving(plan, catalog, snapshot, journal, Array.Empty<TaskResult>(), progress, ct);
-
-        _store.SaveState(new AppState(plan.Id, false));
-        status?.Report("完成");
-        return result;
-    }
-
-    /// <summary>每完成一个任务就把部分结果落盘（FinishedAt 为 null），崩溃后可据此续跑。</summary>
-    private ExecutionResult RunSaving(Plan plan, IReadOnlyList<ITask> catalog, EnvironmentSnapshot snapshot, IJournal journal,
-        IReadOnlyList<TaskResult> previous, IProgress<RunnerProgress>? progress, CancellationToken ct)
-    {
-        var started = DateTime.Now;
-        var acc = previous.ToList();
-        var saving = new Progress<RunnerProgress>(p =>
-        {
-            if (p.LastResult != null)
-            {
-                acc.Add(p.LastResult);
-                try { _store.Save($"result-{plan.Id}.json", new ExecutionResult(plan.Id, started, null, false, false, acc.ToList())); }
-                catch (Exception ex) { _services.Logger.Warn("保存部分结果失败: " + ex.Message); }
-            }
-            progress?.Report(p);
-        });
-        var result = new TaskRunner(_services).Run(plan, catalog, snapshot, journal, saving, ct);
-        var merged = result with { Results = previous.Concat(result.Results).ToList(), RebootRequired = result.RebootRequired || previous.Any(r => r.Outcome == TaskOutcome.NeedsReboot) };
-        _store.Save($"result-{plan.Id}.json", merged);
-        return merged;
-    }
-
-    /// <summary>读取上次会话；PendingResume 为 true 且结果未完成时表示需要续跑。</summary>
+    /// <summary>读取上次会话；PendingResume 为 true 表示上次有任务执行到一半时进程退出。</summary>
     public ResumeSession? LoadLast()
     {
         var state = _store.LoadState();
@@ -76,26 +28,10 @@ public sealed class ExecutionCoordinator
         var snapshot = _store.Load<EnvironmentSnapshot>($"snapshot-{state.LastPlanId}.json");
         if (plan == null || snapshot == null) return null;
         var result = _store.Load<ExecutionResult>($"result-{state.LastPlanId}.json");
-        var unfinished = state.PendingResume && (result == null || result.FinishedAt == null);
-        return new ResumeSession(plan, snapshot, result, unfinished);
+        return new ResumeSession(plan, snapshot, result, state.PendingResume);
     }
 
-    /// <summary>崩溃续跑：跳过已有结果的任务，继续执行其余勾选项。</summary>
-    public ExecutionResult Continue(ResumeSession session, IReadOnlyList<ITask> catalog, IProgress<RunnerProgress>? progress, IProgress<string>? status, CancellationToken ct)
-    {
-        var done = new HashSet<string>(session.Result?.Results.Select(r => r.TaskId) ?? Enumerable.Empty<string>(), StringComparer.OrdinalIgnoreCase);
-        var remaining = session.Plan with
-        {
-            Items = session.Plan.Items.Select(i => done.Contains(i.TaskId) ? i with { Checked = false } : i).ToList(),
-        };
-        _store.SaveState(new AppState(session.Plan.Id, true));
-        var journal = new FileJournal(_store.PathFor($"journal-{session.Plan.Id}.jsonl"));
-        status?.Report("继续上次未完成的执行…");
-        var result = RunSaving(remaining, catalog, session.Snapshot, journal, session.Result?.Results ?? Array.Empty<TaskResult>(), progress, ct);
-        _store.SaveState(new AppState(session.Plan.Id, false));
-        status?.Report("完成");
-        return result;
-    }
+    public void ClearPending(string planId) => _store.SaveState(new AppState(planId, false));
 
     /// <summary>重启后复核：对标记“需重启”的任务重新 Verify，通过的改为完成。</summary>
     public ExecutionResult Reverify(ResumeSession session, IReadOnlyList<ITask> catalog)
@@ -119,4 +55,5 @@ public sealed class ExecutionCoordinator
     }
 }
 
+/// <summary>Unfinished：上次进程在执行某项时退出（改动已按 journal 回滚与否未知，需提示用户检查记录）。</summary>
 public sealed record ResumeSession(Plan Plan, EnvironmentSnapshot Snapshot, ExecutionResult? Result, bool Unfinished);

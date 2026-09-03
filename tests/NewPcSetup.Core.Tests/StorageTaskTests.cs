@@ -128,18 +128,17 @@ public class HibernateOffTaskTests
 public class ImeTaskTests
 {
     [Fact]
-    public void ShiftSwitchOnlyWhenNotKept_PunctuationOnlyForEnglishDefault()
+    public void ImeTasksListedAsOptional()
     {
         var (svc, _, _, _, _) = TestData.Services();
         var s = TestData.Snapshot();
-        var def = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
-        Assert.DoesNotContain(def.Items, i => i.TaskId == "ime.shift_switch");
-        Assert.DoesNotContain(def.Items, i => i.TaskId == "ime.punct_hotkey");
-
-        var opt = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s, ime: ImeMode.EnglishDefault, keepShift: false));
-        Assert.Equal(PlanState.Planned, opt.Items.Single(i => i.TaskId == "ime.shift_switch").State);
-        Assert.Equal(PlanState.Planned, opt.Items.Single(i => i.TaskId == "ime.punct_hotkey").State);
-        Assert.Equal(PlanState.Planned, opt.Items.Single(i => i.TaskId == "ime.default_english").State);
+        var plan = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
+        foreach (var id in new[] { "ime.shift_switch", "ime.punct_hotkey", "ime.default_english" })
+        {
+            var item = plan.Items.Single(i => i.TaskId == id);
+            Assert.Equal(PlanState.Planned, item.State);
+            Assert.False(item.Checked);
+        }
     }
 }
 

@@ -130,7 +130,11 @@ public sealed class KnownFolderTask : TaskBase
 /// <summary>把某个开发工具的缓存/数据目录通过用户环境变量指向数据盘。</summary>
 public sealed class EnvVarTask : TaskBase
 {
-    public sealed record Var(string Name, string RelativeTarget);
+    /// <summary>
+    /// LegacyDir 用于非缓存类目录（如 Android SDK）：内容不能靠重新下载补回来，
+    /// 变量已指向系统盘、或变量未设但默认位置已有内容时，只改路径会让工具找不到东西，因此整项标为不适用。
+    /// </summary>
+    public sealed record Var(string Name, string RelativeTarget, string? LegacyDir = null);
 
     private readonly string _toolId;
     private readonly IReadOnlyList<Var> _vars;
@@ -157,12 +161,30 @@ public sealed class EnvVarTask : TaskBase
         foreach (var v in _vars)
         {
             var cur = ctx.Environment.Get(EnvScope.User, v.Name);
+            if (v.LegacyDir != null)
+            {
+                var blocked = Blocker(ctx, v, cur);
+                if (blocked != null) return DetectResult.NotApplicableBecause(blocked);
+            }
             current.Add($"{v.Name}={cur ?? "未设置"}");
             target.Add($"{v.Name}={Path.Combine(root, v.RelativeTarget)}");
             if (string.IsNullOrEmpty(cur) || ctx.Snapshot.IsOnSystemDrive(Environment.ExpandEnvironmentVariables(cur))) ok = false;
         }
         // 已经指向非系统盘的自定义位置视为已完成，不强行改成我们的骨架
         return new DetectResult(ok, string.Join("; ", current), ok ? string.Join("; ", current) : string.Join("; ", target));
+    }
+
+    /// <summary>非缓存类变量不能自动改路径时返回原因，否则返回 null。</summary>
+    private static string? Blocker(TaskContext ctx, Var v, string? current)
+    {
+        if (!string.IsNullOrEmpty(current))
+            return ctx.Snapshot.IsOnSystemDrive(Environment.ExpandEnvironmentVariables(current!))
+                ? $"{v.Name} 已指向系统盘的 {current}，这里的内容不是缓存，只改变量会让工具找不到它。请先在应用内把目录搬到数据盘再改变量"
+                : null;
+        var legacy = Environment.ExpandEnvironmentVariables(v.LegacyDir!);
+        return ctx.FileSystem.DirectoryExists(legacy)
+            ? $"默认位置 {legacy} 已有内容，只改变量会让工具找不到它。请先在应用内把目录搬到数据盘再改变量"
+            : null;
     }
 
     public override void Apply(TaskContext ctx)

@@ -7,7 +7,6 @@ using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using NewPcSetup.Core.Models;
 
 namespace NewPcSetup.App.ViewModels;
 
@@ -63,15 +62,12 @@ public sealed partial class SoftwareViewModel : ObservableObject
     {
         _services = services; _back = back;
         var s = services.Session.Snapshot;
-        var usage = services.Session.Answers?.Usage ?? Usage.Home;
         var drive = services.Session.Answers?.DataDrive ?? s?.DataDrive;
         var appsRoot = drive != null ? drive + @"\Applications" : null;
         AppsRoot = appsRoot ?? "（未检测到数据盘，建议先完成路径设置）";
 
-        var usageKey = usage.ToString().ToLowerInvariant();
         var entries = services.Software.Entries
             .OrderBy(e => Array.IndexOf(CategoryOrder, e.Category) is var i && i >= 0 ? i : 99)
-            .ThenByDescending(e => e.Usages.Contains(usageKey))
             .ToList();
         Groups = new ObservableCollection<SoftwareGroupViewModel>(entries.GroupBy(e => e.Category)
             .Select(g => new SoftwareGroupViewModel(g.Key, g.Select(e => new SoftwareItemViewModel(e, appsRoot)))));

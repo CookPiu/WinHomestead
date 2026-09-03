@@ -14,10 +14,7 @@
 
       <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
-      <DataTemplate DataType="{x:Type vm:WelcomeViewModel}"><views:WelcomeView /></DataTemplate>
-      <DataTemplate DataType="{x:Type vm:QuestionnaireViewModel}"><views:QuestionnaireView /></DataTemplate>
-      <DataTemplate DataType="{x:Type vm:PlanViewModel}"><views:PlanView /></DataTemplate>
-      <DataTemplate DataType="{x:Type vm:ExecuteViewModel}"><views:ExecuteView /></DataTemplate>
+      <DataTemplate DataType="{x:Type vm:HomeViewModel}"><views:HomeView /></DataTemplate>
       <DataTemplate DataType="{x:Type vm:ReportViewModel}"><views:ReportView /></DataTemplate>
       <DataTemplate DataType="{x:Type vm:SoftwareViewModel}"><views:SoftwareView /></DataTemplate>
       <DataTemplate DataType="{x:Type vm:StorageViewModel}"><views:StorageView /></DataTemplate>

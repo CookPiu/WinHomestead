@@ -7,7 +7,7 @@ using NewPcSetup.Core.Models;
 
 namespace NewPcSetup.Tasks;
 
-/// <summary>压缩 C 并新建数据分区。不可撤销，只在问卷明确同意（CreatePartition）时进入方案。</summary>
+/// <summary>压缩 C 并新建数据分区。不可撤销；单盘无数据分区时列出，由用户点击执行并二次确认。</summary>
 public sealed class ShrinkAndCreateTask : TaskBase
 {
     public const string Id = "disk.shrink_and_create";
@@ -19,6 +19,8 @@ public sealed class ShrinkAndCreateTask : TaskBase
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a)
         => a.CreatePartition && s.DataDrive == null && !s.IsMdmEnrolled && DiskAdvisor.Advise(s).NeedsPartition;
+    /// <summary>不可撤销的分区操作不标“推荐”，由用户明确点击执行并二次确认。</summary>
+    public override bool DefaultChecked(EnvironmentSnapshot s, Answers a) => false;
 
     private sealed record Layout(PartitionInfo System, long NewSystemBytes, long DataBytes, char Letter);
 
@@ -90,12 +92,7 @@ public sealed class DiskSuggestTask : TaskBase
         RiskFlags.PromptOnly, Array.Empty<string>(), 91);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a)
-    {
-        if (s.DataDrive != null) return false;
-        var advice = DiskAdvisor.Advise(s);
-        if (!advice.NeedsPartition) return false;
-        return !(a.CreatePartition && advice.Automatable && !s.IsMdmEnrolled);
-    }
+        => s.DataDrive == null && DiskAdvisor.Advise(s).NeedsPartition;
 
     public override DetectResult Detect(TaskContext ctx)
     {

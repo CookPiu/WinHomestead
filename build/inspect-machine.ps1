@@ -1,4 +1,4 @@
-# 只读采集脚本：不修改任何设置
+﻿# 只读采集脚本：不修改任何设置
 $ErrorActionPreference = 'SilentlyContinue'
 function Get-RegVal($path, $name) {
   try {

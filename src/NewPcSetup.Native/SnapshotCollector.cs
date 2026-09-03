@@ -213,7 +213,9 @@ public sealed class SnapshotCollector
             new("pub", "Flutter / Dart", OnPath("flutter.bat", "dart.exe") || Set("PUB_CACHE"), Env("PUB_CACHE")),
             new("hf", "Hugging Face", Dir(".cache", "huggingface") || Set("HF_HOME"), Env("HF_HOME")),
             new("ollama", "Ollama", OnPath("ollama.exe") || Set("OLLAMA_MODELS"), Env("OLLAMA_MODELS")),
-            new("conda", "Conda", OnPath("conda.exe", "conda.bat") || Dir(".condarc"), null),
+            new("android", "Android SDK / AVD", Set("ANDROID_HOME") || Set("ANDROID_SDK_ROOT") || OnPath("adb.exe")
+                || Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Android", "Sdk")), Env("ANDROID_HOME")),
+            new("conda", "Conda", OnPath("conda.exe", "conda.bat") || File.Exists(Path.Combine(home, ".condarc")), null),
             new("docker", "Docker Desktop", File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe")), null),
         };
         return list;

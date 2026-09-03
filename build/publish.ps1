@@ -1,4 +1,4 @@
-# Release 构建（Costura 单 exe）→ 校验产物 → 可选签名 → 复制到 artifacts\。
+﻿# Release 构建（Costura 单 exe）→ 校验产物 → 可选签名 → 复制到 artifacts\。
 # 用法：
 #   .\build\publish.ps1                       # 构建 + 校验
 #   .\build\publish.ps1 -Thumbprint <sha1>    # 构建 + 用本机证书库中的代码签名证书签名

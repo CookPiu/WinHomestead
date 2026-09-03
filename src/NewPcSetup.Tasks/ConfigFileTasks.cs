@@ -1,0 +1,127 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Xml;
+using System.Xml.Linq;
+using NewPcSetup.Core.Abstractions;
+using NewPcSetup.Core.Engine;
+using NewPcSetup.Core.Models;
+
+namespace NewPcSetup.Tasks;
+
+/// <summary>没有环境变量可用、只能改配置文件的迁移项。改写前由 JournalingFileSystem 自动备份原文件，回滚时还原。</summary>
+public abstract class ConfigFileTaskBase : TaskBase
+{
+    protected static string UserProfile => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    protected static string Target(TaskContext ctx, string relative) => Path.Combine(DataRoot(ctx), relative);
+}
+
+/// <summary>Maven 本地仓库：改写 settings.xml 的 &lt;localRepository&gt;。</summary>
+public sealed class MavenSettingsTask : ConfigFileTaskBase
+{
+    public const string Id = "env.maven";
+    private const string Relative = @"DevCache\m2-repository";
+
+    public override TaskMetadata Metadata { get; } = new(Id, "env", "Maven 本地仓库迁移到数据盘",
+        @"改写 %USERPROFILE%\.m2\settings.xml 的 <localRepository>，把 jar 仓库放到数据盘 DevCache\m2-repository。原文件先备份为 settings.xml.newpcsetup-bak，已下载的 jar 不会被移动（Maven 会按需重新下载）。",
+        RiskFlags.Reversible, new[] { PathSkeletonTask.Id }, 142);
+
+    public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a) && s.HasTool("maven");
+
+    private static string SettingsPath => Path.Combine(UserProfile, ".m2", "settings.xml");
+
+    public override DetectResult Detect(TaskContext ctx)
+    {
+        var target = Target(ctx, Relative);
+        var text = ctx.FileSystem.ReadAllText(SettingsPath);
+        if (text == null)
+            return new DetectResult(false, @"未设置（默认 %USERPROFILE%\.m2\repository）", target);
+
+        XDocument doc;
+        try { doc = XDocument.Parse(text); }
+        catch (XmlException ex) { return DetectResult.NotApplicableBecause($"settings.xml 解析失败（{ex.Message}），请手动把 <localRepository> 改到 {target}"); }
+        if (doc.Root == null || doc.Root.Name.LocalName != "settings")
+            return DetectResult.NotApplicableBecause($"settings.xml 的根元素不是 <settings>，请手动把 <localRepository> 改到 {target}");
+
+        var current = LocalRepository(doc)?.Value.Trim();
+        var satisfied = !string.IsNullOrEmpty(current) && !ctx.Snapshot.IsOnSystemDrive(Environment.ExpandEnvironmentVariables(current!));
+        return new DetectResult(satisfied, string.IsNullOrEmpty(current) ? @"未设置（默认 %USERPROFILE%\.m2\repository）" : current, satisfied ? current : target);
+    }
+
+    public override void Apply(TaskContext ctx)
+    {
+        var target = Target(ctx, Relative);
+        ctx.FileSystem.CreateDirectory(target);
+        var text = ctx.FileSystem.ReadAllText(SettingsPath);
+        if (text == null)
+        {
+            ctx.FileSystem.WriteAllText(SettingsPath, NewSettings(target));
+            return;
+        }
+        var doc = XDocument.Parse(text);
+        var ns = doc.Root!.Name.Namespace;
+        var element = LocalRepository(doc);
+        if (element != null) element.Value = target;
+        else doc.Root.AddFirst(new XElement(ns + "localRepository", target));
+        var declaration = doc.Declaration?.ToString() ?? "<?xml version=\"1.0\" encoding=\"UTF-8\"?>";
+        ctx.FileSystem.WriteAllText(SettingsPath, declaration + Environment.NewLine + doc.ToString() + Environment.NewLine);
+    }
+
+    private static XElement? LocalRepository(XDocument doc)
+        => doc.Root?.Elements().FirstOrDefault(e => e.Name.LocalName == "localRepository");
+
+    private static string NewSettings(string target) => string.Join(Environment.NewLine,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+        "<settings xmlns=\"http://maven.apache.org/SETTINGS/1.0.0\"",
+        "          xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"",
+        "          xsi:schemaLocation=\"http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd\">",
+        "  <localRepository>" + target + "</localRepository>",
+        "</settings>",
+        string.Empty);
+}
+
+/// <summary>Conda 环境与包目录：写 .condarc 的 envs_dirs / pkgs_dirs。只在没有 .condarc 时写，不改现成的 YAML。</summary>
+public sealed class CondaRcTask : ConfigFileTaskBase
+{
+    public const string Id = "env.conda";
+
+    public override TaskMetadata Metadata { get; } = new(Id, "env", "Conda 环境与包目录迁移到数据盘",
+        @"在 %USERPROFILE%\.condarc 写入 envs_dirs 与 pkgs_dirs，把虚拟环境与包缓存放到数据盘 DevCache\conda。已存在 .condarc 时不改写，只给出手动步骤，避免破坏其中的 channels、proxy 等设置。",
+        RiskFlags.Reversible, new[] { PathSkeletonTask.Id }, 143);
+
+    public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a) && s.HasTool("conda");
+
+    private static string CondaRcPath => Path.Combine(UserProfile, ".condarc");
+    private static string EnvsDir(TaskContext ctx) => Target(ctx, @"DevCache\conda\envs");
+    private static string PkgsDir(TaskContext ctx) => Target(ctx, @"DevCache\conda\pkgs");
+
+    public override DetectResult Detect(TaskContext ctx)
+    {
+        var envs = EnvsDir(ctx);
+        var pkgs = PkgsDir(ctx);
+        var target = $"envs_dirs={envs}; pkgs_dirs={pkgs}";
+        var text = ctx.FileSystem.ReadAllText(CondaRcPath);
+        if (text == null)
+            return new DetectResult(false, @"未设置（默认 %USERPROFILE%\.conda 与 Anaconda 安装目录）", target);
+        if (text.IndexOf(envs, StringComparison.OrdinalIgnoreCase) >= 0 && text.IndexOf(pkgs, StringComparison.OrdinalIgnoreCase) >= 0)
+            return new DetectResult(true, target, target);
+        return DetectResult.NotApplicableBecause(
+            $"已有 .condarc，本工具不改写现成的 YAML。请手动在其中加入 envs_dirs: [{envs}] 与 pkgs_dirs: [{pkgs}]");
+    }
+
+    public override void Apply(TaskContext ctx)
+    {
+        var envs = EnvsDir(ctx);
+        var pkgs = PkgsDir(ctx);
+        ctx.FileSystem.CreateDirectory(envs);
+        ctx.FileSystem.CreateDirectory(pkgs);
+        ctx.FileSystem.WriteAllText(CondaRcPath, string.Join(Environment.NewLine,
+            "# 由 NewPcSetup 写入：conda 环境与包缓存放在数据盘",
+            "envs_dirs:",
+            "  - " + envs,
+            "pkgs_dirs:",
+            "  - " + pkgs,
+            string.Empty));
+    }
+}

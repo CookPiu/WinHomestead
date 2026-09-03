@@ -103,9 +103,17 @@ public sealed class FakeFileSystem : IFileSystem
     {
         if (Locked.Contains(path)) return false;
         Deleted.Add(path);
+        Files.Remove(path);
         foreach (var l in OldFiles.Values) l.RemoveAll(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase));
         return true;
     }
+
+    /// <summary>文本文件内容，键为完整路径。</summary>
+    public readonly Dictionary<string, string> Files = new(StringComparer.OrdinalIgnoreCase);
+    public bool FileExists(string path) => Files.ContainsKey(path);
+    public string? ReadAllText(string path) => Files.TryGetValue(path, out var t) ? t : null;
+    public void WriteAllText(string path, string content) => Files[path] = content;
+    public void CopyFile(string source, string target) => Files[target] = Files[source];
 }
 
 public static class TestData
@@ -126,8 +134,7 @@ public static class TestData
         Tools: tools.Select(t => new DetectedTool(t, t, true, null)).ToList(),
         LargeItems: Array.Empty<LargeItem>(), TakenAt: DateTime.Now);
 
-    public static Answers Answers(EnvironmentSnapshot s, UiStyle style = UiStyle.Win11Default, bool promo = false, ImeMode ime = ImeMode.ChineseDefault, bool keepShift = true)
-        => new(Usage.Dev, s.DataDrive, false, style, false, ime, keepShift, promo);
+    public static Answers Answers(EnvironmentSnapshot s) => new(s.DataDrive, false);
 
     /// <summary>单盘无数据分区的全新机：1 TB 盘，C 500 GB 已用 40 GB。</summary>
     public static EnvironmentSnapshot SingleDiskFresh(long diskBytes = 1000L << 30, long usedBytes = 40L << 30, bool mdm = false, int installedDaysAgo = 2)

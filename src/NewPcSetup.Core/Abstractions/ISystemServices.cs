@@ -56,6 +56,13 @@ public interface IFileSystem
     IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before);
     /// <summary>删除单个文件；被占用或无权限时返回 false，不抛出。</summary>
     bool TryDeleteFile(string path);
+    bool FileExists(string path);
+    /// <summary>读取文本文件；不存在时返回 null。</summary>
+    string? ReadAllText(string path);
+    /// <summary>写入文本文件（UTF-8 无 BOM）；父目录不存在时创建。</summary>
+    void WriteAllText(string path, string content);
+    /// <summary>复制文件，覆盖已存在的目标。</summary>
+    void CopyFile(string source, string target);
 }
 
 public sealed record PartitionInfo(int DiskNumber, int PartitionNumber, string? DriveLetter, long SizeBytes, long OffsetBytes);

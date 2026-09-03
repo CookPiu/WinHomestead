@@ -10,7 +10,7 @@
     </Grid.RowDefinitions>
 
     <StackPanel>
-      <TextBlock Style="{StaticResource PageTitle}" Text="报告" />
+      <TextBlock Style="{StaticResource PageTitle}" Text="{Binding Title}" />
       <TextBlock Style="{StaticResource PageSubtitle}" Text="{Binding Summary}" />
     </StackPanel>
 
@@ -22,8 +22,6 @@
             <ui:Button Content="立即重启" Appearance="Primary" Command="{Binding RebootNowCommand}" Margin="0,0,0,8" />
           </ui:InfoBar.Content>
         </ui:InfoBar>
-        <ui:InfoBar IsOpen="{Binding SignOutSuggested, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="建议注销一次"
-                    Message="环境变量、输入法和鼠标类设置对新启动的程序生效；注销再登录后全部生效。" Margin="0,0,0,8" />
 
         <TextBlock Text="执行结果" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="4,8,0,6" />
         <ui:Card Padding="14,8">
@@ -72,12 +70,9 @@
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
         <ui:Button Content="打开日志与记录目录" Appearance="Secondary" Command="{Binding OpenLogsCommand}" Margin="0,0,8,0" />
         <ui:Button Content="导出 HTML 报告" Appearance="Secondary" Command="{Binding ExportHtmlCommand}" Margin="0,0,8,0" />
-        <TextBlock Text="{Binding ExportStatus}" Style="{StaticResource Muted}" VerticalAlignment="Center" MaxWidth="320" TextTrimming="CharacterEllipsis" />
+        <TextBlock Text="{Binding ExportStatus}" Style="{StaticResource Muted}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis" />
       </StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <ui:Button Content="去安装软件" Appearance="Secondary" Command="{Binding ShowSoftwareCommand}" Margin="0,0,8,0" />
-        <ui:Button Content="完成" Appearance="Primary" Command="{Binding FinishCommand}" MinWidth="120" />
-      </StackPanel>
+      <ui:Button Content="返回列表" Appearance="Primary" Command="{Binding BackCommand}" HorizontalAlignment="Right" MinWidth="120" />
     </Grid>
   </Grid>
 </UserControl>

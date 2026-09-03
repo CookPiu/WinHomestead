@@ -45,7 +45,7 @@ public partial class App : Application
         window.Show();
     }
 
-    /// <summary>UC-12：上次未完成 → 询问是否续跑；--resume 且上次已完成 → 重启后复核并直接看报告。</summary>
+    /// <summary>UC-12：--resume（RunOnce 拉起）时对上次“需重启”项复核并先展示记录；上次进程在执行中退出时提示检查。</summary>
     private static StartupMode DecideStartup(AppServices services, bool resumeFlag)
     {
         ResumeSession? last;
@@ -55,15 +55,15 @@ public partial class App : Application
 
         if (last.Unfinished)
         {
-            var done = last.Result?.Results.Count ?? 0;
-            var answer = MessageBox.Show(
-                $"上次执行（方案 {last.Plan.Id}）没有正常结束，已完成 {done} 项。\n\n是否继续执行剩余的项目？\n选“否”则从头开始新的探测。",
-                "新机开荒", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (answer == MessageBoxResult.Yes) { services.Session.Resume = last; return StartupMode.Continue; }
-            services.Store.SaveState(new NewPcSetup.Core.Models.AppState(last.Plan.Id, false));
-            return StartupMode.Normal;
+            MessageBox.Show($"上次运行在执行某一项时意外退出（会话 {last.Plan.Id}）。改动记录在 {services.Store.BaseDir}，请在列表中查看该项的当前状态后再决定是否重新执行。",
+                "新机开荒", MessageBoxButton.OK, MessageBoxImage.Warning);
+            services.Coordinator.ClearPending(last.Plan.Id);
         }
-        if (resumeFlag && last.Result != null) { services.Session.Resume = last; return StartupMode.Reverify; }
+        if (resumeFlag && last.Result != null)
+        {
+            try { services.Session.PreviousResult = services.Coordinator.Reverify(last, services.Catalog); return StartupMode.Reverify; }
+            catch (Exception ex) { services.Logger.Error("重启后复核失败", ex); }
+        }
         return StartupMode.Normal;
     }
 
