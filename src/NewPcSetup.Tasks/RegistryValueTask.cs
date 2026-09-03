@@ -42,7 +42,7 @@ public sealed class RegistryValueTask : TaskBase
         foreach (var e in _entries)
         {
             var (v, _) = ctx.Registry.GetValue(e.Root, e.Key, e.Name);
-            var label = e.Name.Length == 0 ? "(默认)" : e.Name;
+            var label = Label(e);
             current.Add($"{label}={(v == null ? "未设置" : v.ToString())}");
             target.Add($"{label}={e.Target}");
             if (!Matches(v, e)) satisfied = false;
@@ -58,6 +58,17 @@ public sealed class RegistryValueTask : TaskBase
             if (Matches(v, e)) continue;
             ctx.Registry.SetValue(e.Root, e.Key, e.Name, e.Target, e.Kind);
         }
+    }
+
+    /// <summary>多个条目同名时（如 StickyKeys 与 ToggleKeys 的 Flags）带上键的最后一段以示区分。</summary>
+    private string Label(RegistryEntry e)
+    {
+        var name = e.Name.Length == 0 ? "(默认)" : e.Name;
+        var dup = false;
+        foreach (var o in _entries) if (!ReferenceEquals(o, e) && string.Equals(o.Name, e.Name, StringComparison.OrdinalIgnoreCase)) { dup = true; break; }
+        if (!dup) return name;
+        var i = e.Key.LastIndexOf('\\');
+        return (i >= 0 ? e.Key.Substring(i + 1) : e.Key) + "." + name;
     }
 
     private static bool Matches(object? current, RegistryEntry e)

@@ -74,7 +74,7 @@ public sealed class SnapshotCollector
             {
                 using (o)
                 {
-                    var ram = (int)Math.Round(Convert.ToDouble(o["TotalPhysicalMemory"]) / 1073741824d);
+                    var ram = (int)Math.Ceiling(Convert.ToDouble(o["TotalPhysicalMemory"]) / 1073741824d); // 标称 32 GB 机器实际略少于 32 GiB，向上取整
                     var laptop = Convert.ToInt32(o["PCSystemType"]) == 2 || IsPortableChassis();
                     return (o["Manufacturer"]?.ToString() ?? "", o["Model"]?.ToString() ?? "", ram, laptop, Convert.ToBoolean(o["PartOfDomain"]));
                 }
