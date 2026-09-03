@@ -6,10 +6,14 @@
     <AssemblyName>NewPcSetup</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- Costura 只在 Release 织入：Debug 关闭以便调试与单测直接加载依赖 -->
+    <DisableFody Condition="'$(Configuration)' != 'Release'">true</DisableFody>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="3.0.5" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Fody" Version="6.9.3" PrivateAssets="all" />
+    <PackageReference Include="Costura.Fody" Version="6.2.0" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NewPcSetup.Core\NewPcSetup.Core.csproj" />

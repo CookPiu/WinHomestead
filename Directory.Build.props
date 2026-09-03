@@ -11,7 +11,7 @@
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <!-- M1 阶段先不把警告当错误，M2 起对 Core/Tasks 开启 -->
+    <!-- 默认不把警告当错误；Core/Tasks 在各自 csproj 中开启 -->
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <!-- 把全部托管依赖嵌入 exe；不嵌入 pdb 以控制体积。框架自带程序集（System.Management 等）不会被嵌入。 -->
+  <Costura IncludeDebugSymbols="false" DisableCompression="false" CreateTemporaryAssemblies="false" />
+</Weavers>

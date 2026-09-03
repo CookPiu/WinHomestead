@@ -16,8 +16,11 @@
 ```powershell
 # 本机 SDK 位于 D:\Applications\dotnet，脚本会自动加入当前会话 PATH
 .\build\build.ps1          # Debug 构建 + 单元测试
-.\build\publish.ps1        # Release 构建，产物在 artifacts\
+.\build\publish.ps1        # Release 构建（Costura 单 exe）+ 体积校验，产物在 artifacts\
+.\build\publish.ps1 -Thumbprint <证书指纹>   # 同上并用 signtool 签名（SHA256 + RFC3161 时间戳）
 ```
+
+发布前的人工验收步骤见 [04 发布检查清单](docs/04-发布检查清单.md)。
 
 ## 结构
 
