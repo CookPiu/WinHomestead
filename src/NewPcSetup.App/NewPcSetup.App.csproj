@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>NewPcSetup.App</RootNamespace>
+    <AssemblyName>NewPcSetup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="3.0.5" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewPcSetup.Core\NewPcSetup.Core.csproj" />
+    <ProjectReference Include="..\NewPcSetup.Native\NewPcSetup.Native.csproj" />
+    <ProjectReference Include="..\NewPcSetup.Tasks\NewPcSetup.Tasks.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Catalog\software.json" LogicalName="software.json" />
+  </ItemGroup>
+</Project>

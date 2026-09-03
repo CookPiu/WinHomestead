@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>NewPcSetup.Native</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Management" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewPcSetup.Core\NewPcSetup.Core.csproj" />
+  </ItemGroup>
+</Project>

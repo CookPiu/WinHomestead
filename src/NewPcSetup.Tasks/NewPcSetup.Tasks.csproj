@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>NewPcSetup.Tasks</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NewPcSetup.Core\NewPcSetup.Core.csproj" />
+  </ItemGroup>
+</Project>
