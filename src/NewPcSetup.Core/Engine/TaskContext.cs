@@ -92,10 +92,6 @@ public sealed class TaskContext
                         _raw.Shell.UnpinFromQuickAccess(e.NewValue);
                     else if (e.Key == "quick_access_unpinned" && e.OldValue != null && !_raw.Shell.IsPinnedToQuickAccess(e.OldValue))
                         _raw.Shell.PinToQuickAccess(e.OldValue);
-                    else if (e.Key == "file_backup" && e.OldValue != null && e.NewValue != null && _raw.FileSystem.FileExists(e.OldValue))
-                        _raw.FileSystem.CopyFile(e.OldValue, e.NewValue);
-                    else if (e.Key == "file_created" && e.NewValue != null)
-                        _raw.FileSystem.TryDeleteFile(e.NewValue);
                     break;
                 case JournalKind.Power:
                     if (e.Key == "hibernate" && e.OldValue != null)

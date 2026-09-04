@@ -57,27 +57,13 @@ public sealed partial class ReportViewModel : ObservableObject
         {
             if (s.OneDrive.DesktopProtected) ManualSteps.Add("桌面由 OneDrive 备份接管：如需迁移桌面，先在 OneDrive 设置 → 同步和备份 → 管理备份 中停止桌面备份，再刷新列表。");
             if (s.HasTool("docker")) ManualSteps.Add("Docker Desktop：在 Settings → Resources → Advanced 中把 Disk image location 改到数据盘 VMs\\docker。");
-            AddIfNotApplicable("env.maven", "maven", "Maven：编辑 %USERPROFILE%\\.m2\\settings.xml，把 <localRepository> 指向数据盘 DevCache\\m2-repository。");
-            AddIfNotApplicable("env.conda", "conda", "Conda：在 %USERPROFILE%\\.condarc 中设置 envs_dirs 与 pkgs_dirs 到数据盘 DevCache\\conda。");
-            AddIfNotApplicable("env.android", "android", "Android：把 SDK 与 AVD 目录搬到数据盘后，设置 ANDROID_HOME、ANDROID_USER_HOME、ANDROID_AVD_HOME。");
+            // 只对已经装了的工具提；开荒工具不代为迁移使用中的工具，只把步骤列出来
+            if (s.HasTool("maven")) ManualSteps.Add(@"Maven 已安装：本机仓库位置只能改 %USERPROFILE%\.m2\settings.xml 的 <localRepository>，工具不代改。想搬到数据盘就把它指向 DevCache\m2-repository，已下载的 jar 会重新拉。");
+            if (s.HasTool("android")) ManualSteps.Add("Android SDK 已安装：SDK 与 AVD 镜像动辄几十 GB，改 ANDROID_HOME 不会把它们搬过去。要迁移就在 Android Studio 的 SDK Manager 里改位置并手动移动目录。");
             var phone = s.LargeItems.FirstOrDefault(i => i.Category == "phonelink" && i.SizeGb >= 1);
             if (phone != null) ManualSteps.Add($"手机连接缓存占用 {phone.SizeGb:F1} GB（{phone.Path}）：可在“手机连接”应用设置中清理或断开设备。");
         }
         HasManualSteps = ManualSteps.Count > 0;
-
-        // 对应任务能自动执行时不重复提示；任务判定为“不适用”时把它给出的原因作为手动步骤
-        void AddIfNotApplicable(string taskId, string toolId, string fallback)
-        {
-            if (s == null || !s.HasTool(toolId)) return;
-            var item = _services.Session.Plan?.Items.FirstOrDefault(i => string.Equals(i.TaskId, taskId, StringComparison.OrdinalIgnoreCase));
-            if (item == null) { ManualSteps.Add(fallback); return; }
-            if (item.State != PlanState.NotApplicable) return;
-            var reason = item.Reason;
-            var text = reason != null && reason.StartsWith(DetectResult.NotApplicable, StringComparison.Ordinal)
-                ? reason.Substring(DetectResult.NotApplicable.Length).TrimStart(':', ' ')
-                : null;
-            ManualSteps.Add(text == null ? fallback : $"{item.DisplayName}：{text}。");
-        }
     }
 
     public string Title { get; }

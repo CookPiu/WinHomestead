@@ -105,17 +105,10 @@ public sealed class FakeFileSystem : IFileSystem
     {
         if (Locked.Contains(path)) return false;
         Deleted.Add(path);
-        Files.Remove(path);
         foreach (var l in OldFiles.Values) l.RemoveAll(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase));
         return true;
     }
 
-    /// <summary>文本文件内容，键为完整路径。</summary>
-    public readonly Dictionary<string, string> Files = new(StringComparer.OrdinalIgnoreCase);
-    public bool FileExists(string path) => Files.ContainsKey(path);
-    public string? ReadAllText(string path) => Files.TryGetValue(path, out var t) ? t : null;
-    public void WriteAllText(string path, string content) => Files[path] = content;
-    public void CopyFile(string source, string target) => Files[target] = Files[source];
 }
 
 public static class TestData

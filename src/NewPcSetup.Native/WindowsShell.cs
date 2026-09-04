@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using NewPcSetup.Core.Abstractions;
 
@@ -227,16 +226,4 @@ public sealed class WindowsFileSystem : IFileSystem
         catch { return false; }
     }
 
-    public bool FileExists(string path) => File.Exists(path);
-    public string? ReadAllText(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
-
-    public void WriteAllText(string path, string content)
-    {
-        var dir = Path.GetDirectoryName(path);
-        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        // UTF-8 无 BOM：.condarc 的 YAML 解析器与部分 Maven 版本对 BOM 敏感
-        File.WriteAllText(path, content, new UTF8Encoding(false));
-    }
-
-    public void CopyFile(string source, string target) => File.Copy(source, target, true);
 }

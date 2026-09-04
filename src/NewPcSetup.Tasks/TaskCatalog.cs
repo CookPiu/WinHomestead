@@ -50,29 +50,8 @@ public static class TaskCatalog
             new UserTempTask(),
             new MachineTempTask(),
 
-            // ---- 开发缓存 ----
-            new EnvVarTask("pip", "Python / pip", new[] { new EnvVarTask.Var("PIP_CACHE_DIR", @"DevCache\pip-cache") }, 130),
-            new EnvVarTask("uv", "uv", new[] { new EnvVarTask.Var("UV_CACHE_DIR", @"DevCache\uv-cache") }, 131),
-            new EnvVarTask("npm", "npm", new[] { new EnvVarTask.Var("npm_config_cache", @"DevCache\npm-cache") }, 132),
-            new EnvVarTask("pnpm", "pnpm", new[] { new EnvVarTask.Var("PNPM_HOME", @"DevCache\pnpm") }, 133),
-            new EnvVarTask("yarn", "Yarn", new[] { new EnvVarTask.Var("YARN_CACHE_FOLDER", @"DevCache\yarn-cache") }, 134),
-            new EnvVarTask("gradle", "Gradle", new[] { new EnvVarTask.Var("GRADLE_USER_HOME", @"DevCache\gradle") }, 135),
-            new EnvVarTask("nuget", "NuGet", new[] { new EnvVarTask.Var("NUGET_PACKAGES", @"DevCache\nuget-packages") }, 136),
-            new EnvVarTask("cargo", "Cargo / Rust", new[] { new EnvVarTask.Var("CARGO_HOME", @"DevCache\cargo"), new EnvVarTask.Var("RUSTUP_HOME", @"DevCache\rustup") }, 137),
-            new EnvVarTask("go", "Go", new[] { new EnvVarTask.Var("GOPATH", @"DevCache\go"), new EnvVarTask.Var("GOMODCACHE", @"DevCache\go\pkg\mod") }, 138),
-            new EnvVarTask("pub", "Flutter / Dart", new[] { new EnvVarTask.Var("PUB_CACHE", @"DevCache\pub-cache") }, 139),
-            new EnvVarTask("hf", "Hugging Face", new[] { new EnvVarTask.Var("HF_HOME", @"Models\huggingface") }, 140),
-            new EnvVarTask("ollama", "Ollama", new[] { new EnvVarTask.Var("OLLAMA_MODELS", @"Models\ollama") }, 141),
-            // Android SDK 与 AVD 镜像不是缓存，删掉要重新下载，因此带 LegacyDir：旧位置已有内容时整项不适用
-            new EnvVarTask("android", "Android SDK / AVD", new[]
-            {
-                new EnvVarTask.Var("ANDROID_HOME", @"Applications\AndroidSdk", @"%LOCALAPPDATA%\Android\Sdk"),
-                new EnvVarTask.Var("ANDROID_USER_HOME", @"DevCache\android", @"%USERPROFILE%\.android"),
-                new EnvVarTask.Var("ANDROID_AVD_HOME", @"VMs\android-avd", @"%USERPROFILE%\.android\avd"),
-            }, 144),
-            new MavenSettingsTask(),
-            new CondaRcTask(),
-            new NpmPrefixTask(),
+            // ---- 开发缓存：只做"装之前先预设"，不迁移使用中的工具 ----
+            new DevCachePresetTask(),
 
             // ---- 界面：默认执行 ----
             Reg("ui.file_ext", "ui", "显示文件扩展名", "资源管理器显示所有文件的扩展名，避免双扩展名伪装。", UiRisk, 200, null,

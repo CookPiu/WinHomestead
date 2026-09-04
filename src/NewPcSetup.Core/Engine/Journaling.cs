@@ -105,9 +105,6 @@ internal sealed class JournalingFileSystem : IFileSystem
     public IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before) => _inner.FilesOlderThan(dir, before);
     /// <summary>文件删除不可撤销，不记 journal；调用方任务不得声明 Reversible。</summary>
     public bool TryDeleteFile(string path) => _inner.TryDeleteFile(path);
-    public bool FileExists(string path) => _inner.FileExists(path);
-    public string? ReadAllText(string path) => _inner.ReadAllText(path);
-    public void CopyFile(string source, string target) => _inner.CopyFile(source, target);
 
     public void CreateDirectory(string path)
     {
@@ -116,23 +113,6 @@ internal sealed class JournalingFileSystem : IFileSystem
         _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.File, "dir_created", null, path));
     }
 
-    private const string BackupSuffix = ".newpcsetup-bak";
-
-    /// <summary>改写配置文件前先把原文件复制成 .newpcsetup-bak，journal 记录备份路径供回滚还原。</summary>
-    public void WriteAllText(string path, string content)
-    {
-        if (_inner.FileExists(path))
-        {
-            var backup = path + BackupSuffix;
-            _inner.CopyFile(path, backup);
-            _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.File, "file_backup", backup, path));
-        }
-        else
-        {
-            _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.File, "file_created", null, path));
-        }
-        _inner.WriteAllText(path, content);
-    }
 }
 
 internal sealed class JournalingPower : IPower

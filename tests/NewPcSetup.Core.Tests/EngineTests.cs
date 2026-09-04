@@ -166,16 +166,16 @@ public class PathTaskTests
     }
 
     [Fact]
-    public void EnvVar_OnlyForDetectedTools_SkipsWhenAlreadyOffSystemDrive()
+    public void DevCachePreset_ListedOnceAndPlannedWhileSomethingIsUnset()
     {
         var (svc, _, env, _, _) = TestData.Services();
         env.User["PIP_CACHE_DIR"] = @"E:\mycache";
         var s = TestData.Snapshot("D:", false, "pip", "npm");
         var plan = new Planner(svc).Build(TaskCatalog.All, s, TestData.Answers(s));
 
-        Assert.Equal(PlanState.Skipped, plan.Items.Single(i => i.TaskId == "env.pip").State);
-        Assert.Equal(PlanState.Planned, plan.Items.Single(i => i.TaskId == "env.npm").State);
-        Assert.DoesNotContain(plan.Items, i => i.TaskId == "env.go");
+        // 开发缓存只剩一条"预设"，已装的 pip/npm 与已设过的变量都由任务内部跳过
+        Assert.Single(plan.Items, i => i.Module == "env");
+        Assert.Equal(PlanState.Planned, plan.Items.Single(i => i.TaskId == DevCachePresetTask.Id).State);
     }
 
     [Fact]
