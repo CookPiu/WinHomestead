@@ -30,9 +30,9 @@ public static class ReportHtml
         {
             sb.Append("<h2>电脑</h2><table>");
             Row(sb, "系统", $"{snapshot.OsCaption}（内部版本 {snapshot.Build}）");
-            Row(sb, "机型", $"{snapshot.Manufacturer} {snapshot.Model} · {(snapshot.IsLaptop ? "笔记本" : "台式机")} · {snapshot.RamGb} GB");
+            Row(sb, "机型", $"{snapshot.Manufacturer} {snapshot.Model} · {(snapshot.IsLaptop ? "笔记本" : "台式机")} · 内存 {snapshot.RamGb:F2} GB");
             var vols = new List<string>();
-            foreach (var v in snapshot.Volumes) vols.Add($"{v.DriveLetter} {v.SizeGb:F0} GB（剩 {v.FreeGb:F0} GB）");
+            foreach (var v in snapshot.Volumes) vols.Add($"{v.DriveLetter} {v.SizeGb:F2} GB（剩 {v.FreeGb:F2} GB）");
             Row(sb, "分区", string.Join("；", vols));
             Row(sb, "数据盘", plan?.Answers.DataDrive ?? snapshot.DataDrive ?? "无");
             sb.Append("</table>");

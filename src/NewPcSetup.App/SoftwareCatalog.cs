@@ -49,6 +49,35 @@ public sealed class SoftwareCatalog
         _ => c,
     };
 
+
+    /// <summary>分类对应的安装子目录，避免所有软件平铺在 Applications 下。</summary>
+    public static string CategoryDir(string c) => c switch
+    {
+        "tools" => "Tools",
+        "browser" => "Browsers",
+        "im" => "Chat",
+        "office" => "Office",
+        "media" => "Media",
+        "dev" => "Dev",
+        "game" => "Games",
+        "runtime" => "Runtimes",
+        _ => "Others",
+    };
+
+    /// <summary>分类下的一句话说明，帮着挑，不是要求全装。</summary>
+    public static string CategoryHint(string c) => c switch
+    {
+        "tools" => "解压、截图、搜索这类天天用得上的小工具，挑顺手的装。",
+        "browser" => "系统自带 Edge 已经够用，习惯别家的再装。",
+        "im" => "按你实际在用的选，用不到的不必装。",
+        "office" => "写文档和记笔记，按习惯二选一即可。",
+        "media" => "系统自带播放器解码有限，常看片或录屏再考虑。",
+        "dev" => "只写代码才需要，不开发可以整段跳过。",
+        "game" => "平台本体装到 Applications，游戏库单独放数据盘的 Games。",
+        "runtime" => "老程序常缺的运行库，遇到报错再装也来得及。",
+        _ => string.Empty,
+    };
+
     public static string InstallerHint(SoftwareEntry e) => e.Installer switch
     {
         "electron_user" => "安装器默认装到用户目录，通常不支持自定义路径",

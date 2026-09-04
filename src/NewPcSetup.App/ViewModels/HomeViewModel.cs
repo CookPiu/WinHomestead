@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -100,11 +101,15 @@ public sealed partial class TaskItemViewModel : ObservableObject
 
 public sealed partial class CategoryViewModel : ObservableObject
 {
+    public const string MachineKey = "machine";
+
     public CategoryViewModel(string key)
     {
         Key = key;
+        IsMachineInfo = key == MachineKey;
         Title = key switch
         {
+            MachineKey => "这台电脑",
             "disk" => "分区",
             "path" => "磁盘与路径",
             "env" => "开发缓存",
@@ -118,11 +123,14 @@ public sealed partial class CategoryViewModel : ObservableObject
     }
     public string Key { get; }
     public string Title { get; }
+    public bool IsMachineInfo { get; }
+    public bool IsTaskList => !IsMachineInfo;
     public ObservableCollection<TaskItemViewModel> Items { get; } = new();
     [ObservableProperty] private string _subtitle = string.Empty;
 
     public void RefreshSubtitle()
     {
+        if (IsMachineInfo) return;
         var runnable = Items.Count(i => i.IsPlanned);
         Subtitle = runnable == 0 ? "全部已满足" : $"{runnable} 项可执行";
     }
@@ -144,13 +152,14 @@ public sealed partial class HomeViewModel : ObservableObject
 
     public ObservableCollection<CategoryViewModel> Categories { get; } = new();
     public ObservableCollection<string> Warnings { get; } = new();
+    /// <summary>“这台电脑”栏位的内容；容量一律给精确值，不做四舍五入。</summary>
+    public ObservableCollection<MachineRow> MachineInfo { get; } = new();
     public List<OptionItem> DataDriveOptions { get; private set; } = new();
 
     [ObservableProperty] private CategoryViewModel? _selectedCategory;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isExecuting;
     [ObservableProperty] private string _status = "正在探测这台电脑…";
-    [ObservableProperty] private string _machineSummary = string.Empty;
     [ObservableProperty] private string _dataDrive = string.Empty;
     [ObservableProperty] private bool _hasDataDrive;
     [ObservableProperty] private bool _explorerRestartPending;
@@ -187,8 +196,7 @@ public sealed partial class HomeViewModel : ObservableObject
 
     private void Populate(EnvironmentSnapshot s)
     {
-        MachineSummary = $"{s.OsCaption} · {s.Manufacturer} {s.Model} · {(s.IsLaptop ? "笔记本" : "台式机")} · {s.RamGb} GB · " +
-                         string.Join("；", s.Volumes.Select(v => $"{v.DriveLetter} {v.SizeGb:F0} GB（剩 {v.FreeGb:F0} GB）"));
+        BuildMachineInfo(s);
 
         var options = s.Volumes.Where(v => !v.IsSystem)
             .Select(v => new OptionItem($"{v.DriveLetter} {v.Label}（{v.SizeGb:F0} GB，剩 {v.FreeGb:F0} GB）", v.DriveLetter)).ToList();
@@ -211,11 +219,51 @@ public sealed partial class HomeViewModel : ObservableObject
         if (s.DataDrive == null) Warnings.Add("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
         DesktopProtected = s.OneDrive.DesktopProtected;
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        if (sys != null && sys.FreeGb < 40) Warnings.Add($"系统盘剩余仅 {sys.FreeGb:F0} GB，建议优先执行路径迁移并查看“C 盘”页。");
+        if (sys != null && sys.FreeGb < 40) Warnings.Add($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘”页。");
 
         RebuildPlan(s, answers);
         Status = "探测完成";
     }
+
+    /// <summary>硬件信息单独成栏。GB 一律按 GiB 折算并保留两位，另附字节原值，避免"四舍五入后看起来不对"。</summary>
+    private void BuildMachineInfo(EnvironmentSnapshot s)
+    {
+        MachineInfo.Clear();
+        MachineInfo.Add(new MachineRow("系统", $"{s.OsCaption}（内部版本 {s.Build}）", $"安装于 {s.InstallDate:yyyy-MM-dd HH:mm}"));
+        MachineInfo.Add(new MachineRow("机型", $"{s.Manufacturer} {s.Model}".Trim(), s.IsLaptop ? "笔记本" : "台式机"));
+        if (s.Cpu.Name.Length > 0 || s.Cpu.Cores > 0)
+            MachineInfo.Add(new MachineRow("处理器", s.Cpu.Name.Length > 0 ? s.Cpu.Name : "未知",
+                s.Cpu.Cores > 0 ? $"{s.Cpu.Cores} 核 {s.Cpu.LogicalProcessors} 线程" : string.Empty));
+        MachineInfo.Add(new MachineRow("内存", Gb(s.RamBytes), Bytes(s.RamBytes)));
+
+        foreach (var d in s.Disks)
+            MachineInfo.Add(new MachineRow($"磁盘 {d.Number}", $"{d.Model}（{d.InterfaceType}） {Gb(d.SizeBytes)}", Bytes(d.SizeBytes)));
+
+        foreach (var v in s.Volumes)
+        {
+            var tag = v.IsSystem ? "系统盘" : string.Equals(v.DriveLetter, s.DataDrive, StringComparison.OrdinalIgnoreCase) ? "数据盘" : "数据卷";
+            var label = string.IsNullOrWhiteSpace(v.Label) ? string.Empty : $"{v.Label} · ";
+            MachineInfo.Add(new MachineRow($"{v.DriveLetter} {tag}",
+                $"{label}总 {Gb(v.SizeBytes)} · 已用 {Gb(v.UsedBytes)} · 剩余 {Gb(v.FreeBytes)}",
+                $"总 {Bytes(v.SizeBytes)}，剩余 {Bytes(v.FreeBytes)}"));
+        }
+
+        var managed = new List<string>();
+        if (s.IsMdmEnrolled) managed.Add("已注册 MDM");
+        if (s.IsDomainJoined) managed.Add("已加入域");
+        if (s.ProxyEnabled) managed.Add("系统代理已开启");
+        MachineInfo.Add(new MachineRow("管理与网络", managed.Count == 0 ? "未受管理，未开系统代理" : string.Join("；", managed),
+            s.IsMdmEnrolled || s.IsDomainJoined ? "系统级改动会被跳过或只给步骤" : string.Empty));
+
+        var od = !s.OneDrive.Installed ? "未安装" : s.OneDrive.SignedIn ? "已登录" : "已安装未登录";
+        MachineInfo.Add(new MachineRow("OneDrive", od, s.OneDrive.DesktopProtected ? "桌面已被备份接管" : string.Empty));
+        MachineInfo.Add(new MachineRow("已识别的开发工具", s.Tools.Count(x => x.Installed) + " 个",
+            string.Join("、", s.Tools.Where(x => x.Installed).Select(x => x.Name))));
+        MachineInfo.Add(new MachineRow("探测时间", s.TakenAt.ToString("yyyy-MM-dd HH:mm:ss"), string.Empty));
+    }
+
+    private static string Gb(long bytes) => (bytes / 1073741824d).ToString("F2", CultureInfo.InvariantCulture) + " GB";
+    private static string Bytes(long bytes) => bytes.ToString("N0", CultureInfo.InvariantCulture) + " 字节";
 
     /// <summary>重新 Detect 全部条目并就地刷新列表，保留已有执行结果。</summary>
     private void RebuildPlan(EnvironmentSnapshot s, Answers answers)
@@ -231,6 +279,8 @@ public sealed partial class HomeViewModel : ObservableObject
         var results = _services.Runner.Results.ToDictionary(r => r.TaskId, StringComparer.OrdinalIgnoreCase);
         var selectedKey = SelectedCategory?.Key;
         var order = plan.Items.Select(i => i.Module).Distinct().ToList();
+        if (Categories.Count == 0 || !Categories[0].IsMachineInfo)
+            Categories.Insert(0, new CategoryViewModel(CategoryViewModel.MachineKey) { Subtitle = "硬件与系统信息" });
         var existing = Categories.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
 
         // 分类集合尽量就地更新，避免列表闪动
@@ -239,7 +289,7 @@ public sealed partial class HomeViewModel : ObservableObject
             if (!existing.TryGetValue(key, out var cat))
             {
                 cat = new CategoryViewModel(key);
-                Categories.Insert(Math.Min(order.IndexOf(key), Categories.Count), cat);
+                Categories.Insert(Math.Min(order.IndexOf(key) + 1, Categories.Count), cat);
                 existing[key] = cat;
             }
             var items = plan.Items.Where(i => i.Module == key).ToList();
@@ -259,7 +309,7 @@ public sealed partial class HomeViewModel : ObservableObject
             }
             cat.RefreshSubtitle();
         }
-        foreach (var stale in Categories.Where(c => !order.Contains(c.Key)).ToList()) Categories.Remove(stale);
+        foreach (var stale in Categories.Where(c => !c.IsMachineInfo && !order.Contains(c.Key)).ToList()) Categories.Remove(stale);
 
         SelectedCategory = Categories.FirstOrDefault(c => c.Key == selectedKey) ?? Categories.FirstOrDefault();
         var runnable = plan.Items.Count(i => i.State == PlanState.Planned);
@@ -402,6 +452,20 @@ public sealed partial class HomeViewModel : ObservableObject
 
     [RelayCommand]
     private void ShowReport() => RequestShowReport?.Invoke();
+}
+
+/// <summary>“这台电脑”栏位的一行：标签、主值、补充说明（精确字节数等）。</summary>
+public sealed class MachineRow
+{
+    public MachineRow(string label, string value, string? detail)
+    {
+        Label = label; Value = value; Detail = detail ?? string.Empty;
+        HasDetail = Detail.Length > 0;
+    }
+    public string Label { get; }
+    public string Value { get; }
+    public string Detail { get; }
+    public bool HasDetail { get; }
 }
 
 public sealed class OptionItem

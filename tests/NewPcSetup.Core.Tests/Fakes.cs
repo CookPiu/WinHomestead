@@ -124,7 +124,8 @@ public static class TestData
         => Snapshot(dataDrive, desktopProtected, isLaptop: true, mdm: false, tools);
 
     public static EnvironmentSnapshot Snapshot(string? dataDrive, bool desktopProtected, bool isLaptop, bool mdm, params string[] tools) => new(
-        OsCaption: "Windows 11 Professional 25H2", DisplayVersion: "25H2", Build: 26200, IsLaptop: isLaptop, RamGb: 32,
+        OsCaption: "Windows 11 Professional 25H2", DisplayVersion: "25H2", Build: 26200, IsLaptop: isLaptop,
+        RamBytes: 34_270_404_608L, Cpu: new CpuInfo("Test CPU", 8, 16),
         Manufacturer: "Test", Model: "T1", IsMdmEnrolled: mdm, IsDomainJoined: false, ProxyEnabled: false,
         Disks: new[] { new DiskInfo(0, "SSD", 1_000_000_000_000, "NVMe") },
         Volumes: dataDrive == null

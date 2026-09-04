@@ -13,7 +13,7 @@ public sealed class StorageRow
     public StorageRow(LargeItem item, bool isLaptop)
     {
         Path = item.Path;
-        Size = $"{item.SizeGb:F1} GB";
+        Size = $"{item.SizeGb:F2} GB";
         (Label, Tag, Advice) = item.Category switch
         {
             "hiberfil" => ("休眠文件", isLaptop ? "保留" : "可关闭", isLaptop ? "笔记本建议保留，用于休眠与快速启动。" : "台式机可在方案中勾选“关闭休眠”释放空间。"),
@@ -63,7 +63,7 @@ public sealed partial class StorageViewModel : ObservableObject
         var s = services.Session.Snapshot;
         if (s == null) { Summary = "尚未完成探测。"; return; }
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        Summary = sys == null ? string.Empty : $"{sys.DriveLetter} 共 {sys.SizeGb:F0} GB，剩余 {sys.FreeGb:F0} GB";
+        Summary = sys == null ? string.Empty : $"{sys.DriveLetter} 共 {sys.SizeGb:F2} GB，已用 {sys.UsedGb:F2} GB，剩余 {sys.FreeGb:F2} GB";
         foreach (var i in s.LargeItems.OrderByDescending(i => i.SizeBytes)) Rows.Add(new StorageRow(i, s.IsLaptop));
     }
 

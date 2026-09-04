@@ -4,7 +4,7 @@ using NewPcSetup.Core.Abstractions;
 
 namespace NewPcSetup.Native;
 
-/// <summary>读取三处 Uninstall 键的 DisplayName，用于软件入口页的"已安装"标记。</summary>
+/// <summary>读取三处 Uninstall 键的 DisplayName，用于软件推荐页的"已安装"标记与 OEM 预装检查。</summary>
 public sealed class InstalledPrograms
 {
     private static readonly (RegRoot Root, string Key)[] Sources =

@@ -16,14 +16,13 @@
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <StackPanel>
+        <StackPanel VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal">
             <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0"
                              Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
             <TextBlock Text="{Binding Status}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
             <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="12,0,0,0" VerticalAlignment="Center" />
           </StackPanel>
-          <TextBlock Text="{Binding MachineSummary}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
           <TextBlock Text="数据盘" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
@@ -86,7 +85,8 @@
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                    Visibility="{Binding SelectedCategory.IsTaskList, Converter={StaticResource BooleanToVisibilityConverter}}">
         <ItemsControl ItemsSource="{Binding SelectedCategory.Items}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
@@ -142,6 +142,31 @@
                                      Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <ui:Button Content="{Binding ButtonText}" Appearance="Primary" MinWidth="88" Command="{Binding RunCommand}" IsEnabled="{Binding CanRun}"
                                Visibility="{Binding IsPlanned, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                  </StackPanel>
+                </Grid>
+              </ui:Card>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- “这台电脑”：只读硬件信息，容量给精确值 -->
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                    Visibility="{Binding SelectedCategory.IsMachineInfo, Converter={StaticResource BooleanToVisibilityConverter}}">
+        <ItemsControl ItemsSource="{Binding MachineInfo}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <ui:Card Padding="14,8" Margin="0,0,0,6">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" VerticalAlignment="Top" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Value}" Style="{StaticResource BodyStrongTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,2,0,0"
+                               Visibility="{Binding HasDetail, Converter={StaticResource BooleanToVisibilityConverter}}" />
                   </StackPanel>
                 </Grid>
               </ui:Card>

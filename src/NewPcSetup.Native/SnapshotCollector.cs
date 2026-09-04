@@ -34,7 +34,7 @@ public sealed class SnapshotCollector
         var caption = $"Windows {(build >= 22000 ? "11" : "10")} {edition} {displayVersion}".Trim();
         var installDate = DateTimeOffset.FromUnixTimeSeconds(Int(RegRoot.LocalMachine, CurrentVersion, "InstallDate")).LocalDateTime;
 
-        var (manufacturer, model, ramGb, isLaptop, domain) = ComputerSystem();
+        var (manufacturer, model, ramBytes, isLaptop, domain) = ComputerSystem();
         var volumes = Volumes(systemDrive);
         var dataDrive = volumes.Where(v => !v.IsSystem).OrderByDescending(v => v.SizeBytes).Select(v => v.DriveLetter).FirstOrDefault();
 
@@ -43,7 +43,8 @@ public sealed class SnapshotCollector
             DisplayVersion: displayVersion,
             Build: build,
             IsLaptop: isLaptop,
-            RamGb: ramGb,
+            RamBytes: ramBytes,
+            Cpu: Cpu(),
             Manufacturer: manufacturer,
             Model: model,
             IsMdmEnrolled: MdmEnrolled(),
@@ -65,7 +66,8 @@ public sealed class SnapshotCollector
 
     // ---- 各部分 ----
 
-    private (string, string, int, bool, bool) ComputerSystem()
+    /// <summary>内存返回原始字节，展示层自己决定精度；这里不做任何取整。</summary>
+    private (string, string, long, bool, bool) ComputerSystem()
     {
         try
         {
@@ -74,14 +76,35 @@ public sealed class SnapshotCollector
             {
                 using (o)
                 {
-                    var ram = (int)Math.Ceiling(Convert.ToDouble(o["TotalPhysicalMemory"]) / 1073741824d); // 标称 32 GB 机器实际略少于 32 GiB，向上取整
+                    var ram = Convert.ToInt64(o["TotalPhysicalMemory"]);
                     var laptop = Convert.ToInt32(o["PCSystemType"]) == 2 || IsPortableChassis();
                     return (o["Manufacturer"]?.ToString() ?? "", o["Model"]?.ToString() ?? "", ram, laptop, Convert.ToBoolean(o["PartOfDomain"]));
                 }
             }
         }
         catch (Exception ex) { _log.Warn("Win32_ComputerSystem 失败: " + ex.Message); }
-        return ("", "", 0, false, false);
+        return ("", "", 0L, false, false);
+    }
+
+    /// <summary>多路 CPU 少见，取第一颗即可；核心数取全部之和。</summary>
+    private CpuInfo Cpu()
+    {
+        try
+        {
+            var name = string.Empty;
+            var cores = 0;
+            var logical = 0;
+            using var s = new ManagementObjectSearcher("SELECT Name, NumberOfCores, NumberOfLogicalProcessors FROM Win32_Processor");
+            foreach (ManagementObject o in s.Get())
+                using (o)
+                {
+                    if (name.Length == 0) name = (o["Name"]?.ToString() ?? string.Empty).Trim();
+                    cores += Convert.ToInt32(o["NumberOfCores"] ?? 0);
+                    logical += Convert.ToInt32(o["NumberOfLogicalProcessors"] ?? 0);
+                }
+            return new CpuInfo(name, cores, logical);
+        }
+        catch (Exception ex) { _log.Warn("Win32_Processor 失败: " + ex.Message); return new CpuInfo(string.Empty, 0, 0); }
     }
 
     private bool IsPortableChassis()

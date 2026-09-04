@@ -53,7 +53,7 @@ public sealed class ShrinkAndCreateTask : TaskBase
         if (layout == null) return DetectResult.NotApplicableBecause(reason);
         var sys = ctx.Snapshot.Volumes.First(v => v.IsSystem);
         return new DetectResult(false,
-            $"{sys.DriveLetter} 单分区 {sys.SizeGb:F0} GB，已用 {(sys.SizeBytes - sys.FreeBytes) / (double)Gb:F0} GB",
+            $"{sys.DriveLetter} 单分区 {sys.SizeGb:F2} GB，已用 {sys.UsedGb:F2} GB",
             $"压缩 {sys.DriveLetter} 到 {layout.NewSystemBytes / (double)Gb:F0} GB，新建 {layout.Letter}: {layout.DataBytes / (double)Gb:F0} GB（NTFS，卷标 Data）");
     }
 
