@@ -155,3 +155,53 @@ public class AndroidEnvTaskTests
         Assert.StartsWith(Core.Abstractions.DetectResult.NotApplicable, Task.Detect(ctx).Reason);
     }
 }
+
+public class NpmPrefixTaskTests
+{
+    private static string NpmrcPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".npmrc");
+    private static string DefaultPrefix => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm");
+
+    [Fact]
+    public void RewritesPrefixKeepingOtherKeys_AndAppendsToPath()
+    {
+        var (svc, _, env, _, fs) = TestData.Services();
+        fs.Files[NpmrcPath] = "registry=https://registry.npmmirror.com\nprefix=C:\\Users\\t\\AppData\\Roaming\\npm\n";
+        env.User["Path"] = @"C:\Windows;C:\Windows\System32";
+        var s = TestData.Snapshot("D:", false, "npm");
+        var task = new NpmPrefixTask();
+        var journal = new InMemoryJournal();
+        var ctx = svc.CreateContext(NpmPrefixTask.Id, s, TestData.Answers(s), journal, CancellationToken.None);
+
+        Assert.False(task.Detect(ctx).Satisfied);
+        task.Apply(ctx);
+        Assert.True(task.Verify(ctx));
+        Assert.Contains(@"prefix=D:\DevCache\npm-global", fs.Files[NpmrcPath]);
+        Assert.Contains("registry=https://registry.npmmirror.com", fs.Files[NpmrcPath]);
+        Assert.EndsWith(@";D:\DevCache\npm-global", env.User["Path"]);
+
+        task.Rollback(ctx, journal.EntriesFor(NpmPrefixTask.Id));
+        Assert.Equal(@"C:\Windows;C:\Windows\System32", env.User["Path"]);
+        Assert.Contains(@"prefix=C:\Users\t\AppData\Roaming\npm", fs.Files[NpmrcPath]);
+    }
+
+    [Fact]
+    public void PrefixAlreadyOffSystemDrive_IsSatisfied()
+    {
+        var (svc, _, _, _, fs) = TestData.Services();
+        fs.Files[NpmrcPath] = "prefix=D:\\Applications\\claude-code\n";
+        var s = TestData.Snapshot("D:", false, "npm");
+        var ctx = svc.CreateContext(NpmPrefixTask.Id, s, TestData.Answers(s), new InMemoryJournal(), CancellationToken.None);
+        Assert.True(new NpmPrefixTask().Detect(ctx).Satisfied);
+    }
+
+    [Fact]
+    public void DefaultPrefixHasGlobalPackages_IsNotApplicable()
+    {
+        var (svc, _, _, _, fs) = TestData.Services();
+        fs.Dirs.Add(DefaultPrefix);
+        fs.NonEmptyDirs.Add(DefaultPrefix);
+        var s = TestData.Snapshot("D:", false, "npm");
+        var ctx = svc.CreateContext(NpmPrefixTask.Id, s, TestData.Answers(s), new InMemoryJournal(), CancellationToken.None);
+        Assert.StartsWith(Core.Abstractions.DetectResult.NotApplicable, new NpmPrefixTask().Detect(ctx).Reason);
+    }
+}

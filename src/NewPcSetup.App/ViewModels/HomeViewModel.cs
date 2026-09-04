@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -131,6 +132,7 @@ public sealed partial class HomeViewModel : ObservableObject
 {
     private readonly AppServices _services;
     private readonly Dictionary<string, TaskItemViewModel> _byId = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _cancel;
     private bool _suppressDriveChange;
 
     public HomeViewModel(AppServices services)
@@ -153,6 +155,8 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] private bool _hasDataDrive;
     [ObservableProperty] private bool _explorerRestartPending;
     [ObservableProperty] private bool _rebootPending;
+    [ObservableProperty] private bool _canStop;
+    [ObservableProperty] private bool _desktopProtected;
     [ObservableProperty] private string _runningLabel = string.Empty;
     [ObservableProperty] private string _summary = string.Empty;
 
@@ -205,7 +209,7 @@ public sealed partial class HomeViewModel : ObservableObject
         if (!s.IsWindows11) Warnings.Add("当前不是 Windows 11，部分设置项可能不适用。");
         if (s.IsMdmEnrolled || s.IsDomainJoined) Warnings.Add("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
         if (s.DataDrive == null) Warnings.Add("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
-        if (s.OneDrive.DesktopProtected) Warnings.Add("桌面由 OneDrive 备份接管，迁移桌面前需在 OneDrive 设置中停止桌面备份。");
+        DesktopProtected = s.OneDrive.DesktopProtected;
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
         if (sys != null && sys.FreeGb < 40) Warnings.Add($"系统盘剩余仅 {sys.FreeGb:F0} GB，建议优先执行路径迁移并查看“C 盘”页。");
 
@@ -292,6 +296,9 @@ public sealed partial class HomeViewModel : ObservableObject
         IsExecuting = true;
         item.IsRunning = true;
         RunningLabel = "正在执行：" + item.DisplayName;
+        _cancel = new CancellationTokenSource();
+        // 取消只在任务边界生效：单项执行常常只有一个任务，带上依赖时才真正有得停
+        CanStop = true;
         RefreshAllCanRun();
         var status = new Progress<string>(s => { if (s.Length > 0) RunningLabel = s; });
         var progress = new Progress<RunnerProgress>(p =>
@@ -303,7 +310,8 @@ public sealed partial class HomeViewModel : ObservableObject
         {
             var snapshot = _services.Session.Snapshot;
             var plan = _services.Session.Plan;
-            await Task.Run(() => _services.Runner.Run(item.TaskId, plan, _services.Catalog, snapshot, progress, status, CancellationToken.None));
+            var token = _cancel.Token;
+            await Task.Run(() => _services.Runner.Run(item.TaskId, plan, _services.Catalog, snapshot, progress, status, token), token);
         }
         catch (Exception ex)
         {
@@ -315,6 +323,9 @@ public sealed partial class HomeViewModel : ObservableObject
         finally
         {
             item.IsRunning = false;
+            CanStop = false;
+            _cancel?.Dispose();
+            _cancel = null;
             ExplorerRestartPending = _services.Runner.ExplorerRestartPending;
             RebootPending = _services.Runner.RebootPending;
             RunningLabel = "正在刷新状态…";
@@ -342,6 +353,40 @@ public sealed partial class HomeViewModel : ObservableObject
             IsExecuting = false;
             RefreshAllCanRun();
         }
+    }
+
+    /// <summary>请求在当前任务完成后停止；不打断正在写入的任务。</summary>
+    [RelayCommand]
+    private void Stop()
+    {
+        if (_cancel == null || _cancel.IsCancellationRequested) return;
+        _cancel.Cancel();
+        CanStop = false;
+        RunningLabel = "已请求停止，等当前这项做完…";
+    }
+
+    /// <summary>OneDrive 只提供 odopen 协议，协议不可用时退回直接启动 OneDrive.exe /settings。</summary>
+    [RelayCommand]
+    private void OpenOneDriveSettings()
+    {
+        try { Process.Start(new ProcessStartInfo("odopen://launch/settings") { UseShellExecute = true }); return; }
+        catch (Exception ex) { _services.Logger.Warn("odopen 打开失败: " + ex.Message); }
+        foreach (var exe in new[]
+                 {
+                     System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Microsoft\OneDrive\OneDrive.exe"),
+                     System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Microsoft OneDrive\OneDrive.exe"),
+                 })
+        {
+            try
+            {
+                if (!System.IO.File.Exists(exe)) continue;
+                Process.Start(new ProcessStartInfo(exe, "/settings") { UseShellExecute = true });
+                return;
+            }
+            catch (Exception ex) { _services.Logger.Warn("启动 OneDrive 设置失败: " + ex.Message); }
+        }
+        MessageBox.Show("没能自动打开 OneDrive 设置。请在任务栏右下角右键 OneDrive 图标 → 设置 → 同步和备份 → 管理备份，关掉桌面备份后回来点“重新探测”。",
+            "新机开荒", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     [RelayCommand]

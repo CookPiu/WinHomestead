@@ -72,6 +72,7 @@ public static class TaskCatalog
             }, 144),
             new MavenSettingsTask(),
             new CondaRcTask(),
+            new NpmPrefixTask(),
 
             // ---- 界面：默认执行 ----
             Reg("ui.file_ext", "ui", "显示文件扩展名", "资源管理器显示所有文件的扩展名，避免双扩展名伪装。", UiRisk, 200, null,

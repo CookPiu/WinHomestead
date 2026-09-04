@@ -81,6 +81,101 @@ public sealed class MavenSettingsTask : ConfigFileTaskBase
         string.Empty);
 }
 
+/// <summary>npm 全局包目录：写 .npmrc 的 prefix，并把该目录补进用户 PATH（否则全局命令调不到）。</summary>
+public sealed class NpmPrefixTask : ConfigFileTaskBase
+{
+    public const string Id = "env.npm_prefix";
+    private const string Relative = @"DevCache\npm-global";
+
+    public override TaskMetadata Metadata { get; } = new(Id, "env", "npm 全局包目录迁移到数据盘",
+        @"改写 %USERPROFILE%\.npmrc 的 prefix，把 npm -g 装的包放到数据盘 DevCache\npm-global，并把该目录加进用户 PATH。原文件先备份为 .npmrc.newpcsetup-bak，registry 等其他配置原样保留。",
+        RiskFlags.Reversible | RiskFlags.NeedsSignOut, new[] { PathSkeletonTask.Id }, 145);
+
+    public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a) && s.HasTool("npm");
+
+    private static string NpmrcPath => Path.Combine(UserProfile, ".npmrc");
+    private static string DefaultPrefix => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "npm");
+
+    /// <summary>优先级与 npm 一致：环境变量 &gt; .npmrc &gt; 默认 %APPDATA%\npm。</summary>
+    private static string? CurrentPrefix(TaskContext ctx)
+    {
+        var env = ctx.Environment.Get(EnvScope.User, "npm_config_prefix");
+        if (!string.IsNullOrEmpty(env)) return Environment.ExpandEnvironmentVariables(env!);
+        var line = ReadPrefixLine(ctx.FileSystem.ReadAllText(NpmrcPath));
+        return line ?? DefaultPrefix;
+    }
+
+    private static string? ReadPrefixLine(string? npmrc)
+    {
+        if (npmrc == null) return null;
+        foreach (var raw in npmrc.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line[0] == ';' || line[0] == '#') continue;
+            var i = line.IndexOf('=');
+            if (i > 0 && line.Substring(0, i).Trim().Equals("prefix", StringComparison.OrdinalIgnoreCase))
+                return line.Substring(i + 1).Trim().Trim('"');
+        }
+        return null;
+    }
+
+    public override DetectResult Detect(TaskContext ctx)
+    {
+        var target = Target(ctx, Relative);
+        var current = CurrentPrefix(ctx);
+        if (current != null && !ctx.Snapshot.IsOnSystemDrive(current))
+            return new DetectResult(true, current, current);
+        // 默认目录里已有全局包：改 prefix 后这些包不会跟着走，npm -g 装的命令会突然失效
+        if (ctx.FileSystem.DirectoryExists(DefaultPrefix) && !ctx.FileSystem.IsDirectoryEmpty(DefaultPrefix))
+            return DetectResult.NotApplicableBecause(
+                $"{DefaultPrefix} 里已经装了全局包，改 prefix 不会把它们搬过去。请先记下 npm ls -g --depth=0 的结果，在新目录重装，或保持现状");
+        return new DetectResult(false, current ?? "未设置", target);
+    }
+
+    public override void Apply(TaskContext ctx)
+    {
+        var target = Target(ctx, Relative);
+        ctx.FileSystem.CreateDirectory(target);
+        WritePrefix(ctx, target);
+        AddToPath(ctx, target);
+    }
+
+    private static void WritePrefix(TaskContext ctx, string target)
+    {
+        var npmrc = ctx.FileSystem.ReadAllText(NpmrcPath);
+        if (npmrc == null)
+        {
+            ctx.FileSystem.WriteAllText(NpmrcPath, "prefix=" + target + Environment.NewLine);
+            return;
+        }
+        var lines = npmrc.Replace("\r\n", "\n").Split('\n').ToList();
+        var replaced = false;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0 || line[0] == ';' || line[0] == '#') continue;
+            var eq = line.IndexOf('=');
+            if (eq <= 0 || !line.Substring(0, eq).Trim().Equals("prefix", StringComparison.OrdinalIgnoreCase)) continue;
+            lines[i] = "prefix=" + target;
+            replaced = true;
+            break;
+        }
+        while (lines.Count > 0 && lines[lines.Count - 1].Trim().Length == 0) lines.RemoveAt(lines.Count - 1);
+        if (!replaced) lines.Add("prefix=" + target);
+        ctx.FileSystem.WriteAllText(NpmrcPath, string.Join(Environment.NewLine, lines) + Environment.NewLine);
+    }
+
+    /// <summary>prefix 目录不在 PATH 里的话，npm -g 装的命令敲不出来，所以一并补上。</summary>
+    private static void AddToPath(TaskContext ctx, string target)
+    {
+        var path = ctx.Environment.Get(EnvScope.User, "Path") ?? string.Empty;
+        var parts = path.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Any(p => string.Equals(p.Trim().TrimEnd('\\'), target.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))) return;
+        var updated = path.Length == 0 ? target : path.TrimEnd(';') + ";" + target;
+        ctx.Environment.Set(EnvScope.User, "Path", updated);
+    }
+}
+
 /// <summary>Conda 环境与包目录：写 .condarc 的 envs_dirs / pkgs_dirs。只在没有 .condarc 时写，不改现成的 YAML。</summary>
 public sealed class CondaRcTask : ConfigFileTaskBase
 {

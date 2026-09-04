@@ -92,7 +92,9 @@ public sealed class FakeFileSystem : IFileSystem
     public readonly HashSet<string> Dirs = new(StringComparer.OrdinalIgnoreCase);
     public bool DirectoryExists(string path) => Dirs.Contains(path);
     public void CreateDirectory(string path) => Dirs.Add(path);
-    public bool IsDirectoryEmpty(string path) => true;
+    /// <summary>默认视为空目录；放进 NonEmptyDirs 的按非空处理。</summary>
+    public readonly HashSet<string> NonEmptyDirs = new(StringComparer.OrdinalIgnoreCase);
+    public bool IsDirectoryEmpty(string path) => !NonEmptyDirs.Contains(path);
     public void DeleteEmptyDirectory(string path) => Dirs.Remove(path);
     /// <summary>键为目录，值为其中“旧文件”列表；TryDeleteFile 对 Locked 中的路径返回 false。</summary>
     public readonly Dictionary<string, List<FileEntry>> OldFiles = new(StringComparer.OrdinalIgnoreCase);
