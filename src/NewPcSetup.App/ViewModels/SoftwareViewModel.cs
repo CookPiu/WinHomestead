@@ -87,6 +87,14 @@ public sealed partial class SoftwareViewModel : ObservableObject
                 i.Installed = i.Entry.Detect.Length > 0 && names.Any(n => n.IndexOf(i.Entry.Detect, StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
+    /// <summary>商店"新应用保存位置"无公开接口，只能把用户带到设置页自己改。</summary>
+    [RelayCommand]
+    private void OpenSaveLocations()
+    {
+        try { Process.Start(new ProcessStartInfo("ms-settings:savelocations") { UseShellExecute = true }); }
+        catch (Exception ex) { _services.Logger.Warn("打开保存位置设置失败: " + ex.Message); }
+    }
+
     [RelayCommand]
     private void Back() => _back();
 }

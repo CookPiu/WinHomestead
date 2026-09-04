@@ -61,7 +61,11 @@
 
     <Grid Grid.Row="2" Margin="0,12,0,0">
       <ui:Button Content="返回" Appearance="Secondary" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
-      <ui:Button Content="刷新已安装状态" Appearance="Secondary" Command="{Binding RefreshCommand}" HorizontalAlignment="Right" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button Content="商店应用保存位置" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding OpenSaveLocationsCommand}"
+                   ToolTip="微软商店安装的新应用默认装在 C 盘，且无公开接口可改。点此打开 设置 → 存储 → 高级存储设置 → 新内容的保存位置，把“新的应用将保存到”改成数据盘。" />
+        <ui:Button Content="刷新已安装状态" Appearance="Secondary" Command="{Binding RefreshCommand}" />
+      </StackPanel>
     </Grid>
   </Grid>
 </UserControl>

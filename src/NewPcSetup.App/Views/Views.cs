@@ -6,3 +6,4 @@ public partial class HomeView : UserControl { public HomeView() { InitializeComp
 public partial class ReportView : UserControl { public ReportView() { InitializeComponent(); } }
 public partial class SoftwareView : UserControl { public SoftwareView() { InitializeComponent(); } }
 public partial class StorageView : UserControl { public StorageView() { InitializeComponent(); } }
+public partial class CheckupView : UserControl { public CheckupView() { InitializeComponent(); } }

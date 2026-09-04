@@ -30,6 +30,9 @@ public sealed partial class MainViewModel : ObservableObject
     private void ShowStorage() => CurrentPage = new StorageViewModel(_services, Home);
 
     [RelayCommand]
+    private void ShowCheckup() => CurrentPage = new CheckupViewModel(_services, Home);
+
+    [RelayCommand]
     private void ShowReport() => CurrentPage = new ReportViewModel(_services, Home);
 
     [RelayCommand]

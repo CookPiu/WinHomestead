@@ -12,10 +12,11 @@ namespace NewPcSetup.App;
 public sealed class AppServices
 {
     private AppServices(StateStore store, FileLogger logger, ExecutionServices execution, SnapshotCollector collector,
-        ExecutionCoordinator coordinator, SessionRunner runner, Planner planner, InstalledPrograms installed, SoftwareCatalog software)
+        ExecutionCoordinator coordinator, SessionRunner runner, Planner planner, InstalledPrograms installed, SoftwareCatalog software,
+        SystemChecks checks)
     {
         Store = store; Logger = logger; Execution = execution; Collector = collector; Coordinator = coordinator; Runner = runner;
-        Planner = planner; Installed = installed; Software = software;
+        Planner = planner; Installed = installed; Software = software; Checks = checks;
     }
 
     public StateStore Store { get; }
@@ -27,6 +28,7 @@ public sealed class AppServices
     public Planner Planner { get; }
     public InstalledPrograms Installed { get; }
     public SoftwareCatalog Software { get; }
+    public SystemChecks Checks { get; }
     public IReadOnlyList<ITask> Catalog => TaskCatalog.All;
     public SessionState Session { get; } = new();
 
@@ -40,7 +42,9 @@ public sealed class AppServices
         var collector = new SnapshotCollector(registry, shell, logger);
         var coordinator = new ExecutionCoordinator(execution, store);
         var runner = new SessionRunner(execution, new WmiSystemRestore(logger), store);
-        return new AppServices(store, logger, execution, collector, coordinator, runner, new Planner(execution), new InstalledPrograms(registry), SoftwareCatalog.LoadEmbedded());
+        var installed = new InstalledPrograms(registry);
+        return new AppServices(store, logger, execution, collector, coordinator, runner, new Planner(execution), installed, SoftwareCatalog.LoadEmbedded(),
+            new SystemChecks(registry, installed, logger));
     }
 }
 

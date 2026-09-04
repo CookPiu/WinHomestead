@@ -20,6 +20,16 @@ public sealed class InstalledPrograms
     public IReadOnlyList<string> DisplayNames()
     {
         var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in Entries()) set.Add(e.DisplayName);
+        var list = new List<string>(set);
+        list.Sort(StringComparer.OrdinalIgnoreCase);
+        return list;
+    }
+
+    /// <summary>带发行商的条目，供 OEM 预装软件检查使用；同名不同发行商的都保留。</summary>
+    public IReadOnlyList<InstalledProgram> Entries()
+    {
+        var list = new List<InstalledProgram>();
         foreach (var (root, key) in Sources)
         {
             IReadOnlyList<string> subs;
@@ -28,14 +38,17 @@ public sealed class InstalledPrograms
             {
                 try
                 {
-                    var name = _reg.GetValue(root, key + "\\" + sub, "DisplayName").Value?.ToString();
-                    if (!string.IsNullOrWhiteSpace(name)) set.Add(name!);
+                    var path = key + "\\" + sub;
+                    var name = _reg.GetValue(root, path, "DisplayName").Value?.ToString();
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+                    var publisher = _reg.GetValue(root, path, "Publisher").Value?.ToString();
+                    list.Add(new InstalledProgram(name!, publisher));
                 }
                 catch { }
             }
         }
-        var list = new List<string>(set);
-        list.Sort(StringComparer.OrdinalIgnoreCase);
         return list;
     }
 }
+
+public sealed record InstalledProgram(string DisplayName, string? Publisher);

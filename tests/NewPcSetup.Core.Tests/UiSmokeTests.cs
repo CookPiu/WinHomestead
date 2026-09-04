@@ -36,6 +36,7 @@ public class UiSmokeTests
                 Render(new ReportView { DataContext = new ReportViewModel(services, () => { }) });
                 Render(new SoftwareView { DataContext = new SoftwareViewModel(services, () => { }) });
                 Render(new StorageView { DataContext = new StorageViewModel(services, () => { }) });
+                Render(new CheckupView { DataContext = new CheckupViewModel(services, () => { }) });
 
                 var main = new MainWindow { DataContext = new MainViewModel(services) };
                 main.Measure(new Size(1100, 740));
