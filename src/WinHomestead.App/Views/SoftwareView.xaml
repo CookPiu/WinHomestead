@@ -1,0 +1,94 @@
+<UserControl x:Class="WinHomestead.App.Views.SoftwareView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <StackPanel>
+      <TextBlock Style="{StaticResource PageTitle}" Text="软件推荐" />
+      <TextBlock Style="{StaticResource PageSubtitle}"
+                 Text="下面是新机上比较常见的选择，按你自己的需要挑，不用照单全装。工具只给官网入口和一个建议的安装路径，不下载、不代装、不改你的默认程序。" />
+    </StackPanel>
+
+    <!-- 先把安装目录规划好，再谈装什么 -->
+    <ui:Card Grid.Row="1" Padding="14,10" Margin="0,10,0,10">
+      <StackPanel>
+        <TextBlock Text="安装目录" Style="{StaticResource BodyStrongTextBlockStyle}" />
+        <Grid Margin="0,6,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBlock Text="根目录" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ui:TextBox Grid.Column="1" Text="{Binding Root, UpdateSourceTrigger=LostFocus}" PlaceholderText="例如 D:\Applications" />
+          <ui:Button Grid.Column="2" Content="恢复默认" Appearance="Secondary" Margin="8,0,0,0" Command="{Binding ResetPathsCommand}" />
+        </Grid>
+        <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap" />
+      </StackPanel>
+    </ui:Card>
+
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding Groups}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Margin="0,0,0,14" Visibility="{Binding AnyVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+              <TextBlock Text="{Binding Title}" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="4,0,0,2" />
+              <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="4,0,0,6" TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <ui:Card Padding="14,10" Margin="0,0,0,6" Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Border CornerRadius="8" Padding="6,1" Margin="8,0,0,0" Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
+                                    Visibility="{Binding Installed, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <TextBlock Text="已安装" FontSize="11" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+                            </Border>
+                            <Border CornerRadius="8" Padding="6,1" Margin="6,0,0,0" Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                    Visibility="{Binding IsCustomPath, Converter={StaticResource BooleanToVisibilityConverter}}">
+                              <TextBlock Text="自定义路径" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </Border>
+                          </StackPanel>
+                          <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                          <ui:TextBox Text="{Binding RecommendedPath, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" FontSize="12" Margin="0,6,0,0"
+                                      Visibility="{Binding CanHavePath, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                          <ui:Button Content="复制路径" Appearance="Secondary" Command="{Binding CopyPathCommand}" Margin="0,0,6,0"
+                                     Visibility="{Binding CanHavePath, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                          <ui:Button Content="官网" Appearance="Secondary" Command="{Binding OpenSiteCommand}" />
+                        </StackPanel>
+                      </Grid>
+                    </ui:Card>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <Grid Grid.Row="3" Margin="0,12,0,0">
+      <CheckBox Content="隐藏已安装的" IsChecked="{Binding HideInstalled}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button Content="商店应用保存位置" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding OpenSaveLocationsCommand}"
+                   ToolTip="微软商店安装的新应用默认装在 C 盘，且无公开接口可改。点此打开 设置 → 存储 → 高级存储设置 → 新内容的保存位置。" />
+        <ui:Button Content="刷新已安装状态" Appearance="Secondary" Command="{Binding RefreshCommand}" />
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>

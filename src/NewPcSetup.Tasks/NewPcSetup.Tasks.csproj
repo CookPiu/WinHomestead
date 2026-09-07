@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <RootNamespace>NewPcSetup.Tasks</RootNamespace>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\NewPcSetup.Core\NewPcSetup.Core.csproj" />
-  </ItemGroup>
-</Project>

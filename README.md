@@ -1,4 +1,4 @@
-# NewPcSetup · 新机开荒
+# WinHomestead · 开荒
 
 面向 Windows 11 全新电脑的开荒工具：启动即探测，所有可做的设置按分类列出，每一项显示当前值/目标值与状态，点“执行”立即生效，可随时回来逐项处理。
 核心是"东西不进 C 盘"：目录骨架、用户文件夹迁移、开发缓存环境变量迁移，加上少量可靠的界面与中文输入法设置。微软服务与预装应用默认全部保留。
@@ -25,10 +25,10 @@
 ## 结构
 
 ```
-src/NewPcSetup.Core     模型、ITask、Planner、TaskRunner、日志、持久化（无 WPF 依赖）
-src/NewPcSetup.Native   注册表、环境变量、已知文件夹、Explorer、还原点、环境探测
-src/NewPcSetup.Tasks    任务实现与任务目录
-src/NewPcSetup.App      WPF 界面（WPF-UI）
+src/WinHomestead.Core     模型、ITask、Planner、TaskRunner、日志、持久化（无 WPF 依赖）
+src/WinHomestead.Native   注册表、环境变量、已知文件夹、Explorer、还原点、环境探测
+src/WinHomestead.Tasks    任务实现与任务目录
+src/WinHomestead.App      WPF 界面（WPF-UI）
 tests/                  xUnit 单元测试
 build/                  构建脚本与只读采集脚本
 ```
@@ -37,4 +37,4 @@ build/                  构建脚本与只读采集脚本
 
 - Windows 11 22H2 及以上
 - 管理员账户（程序清单声明 requireAdministrator，启动时提权一次）
-- 所有改动执行前写入 `%ProgramData%\NewPcSetup\journal-*.jsonl`，失败自动回滚
+- 所有改动执行前写入 `%ProgramData%\WinHomestead\journal-*.jsonl`，失败自动回滚

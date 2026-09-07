@@ -20,16 +20,16 @@ if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 New-Item -ItemType Directory -Force $out | Out-Null
 
 # 1. Release 构建（Costura 在 Release 织入）
-dotnet build "$root\src\NewPcSetup.App\NewPcSetup.App.csproj" -c Release
+dotnet build "$root\src\WinHomestead.App\WinHomestead.App.csproj" -c Release
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
-$bin = Join-Path $root 'src\NewPcSetup.App\bin\Release\net48'
-$exe = Get-Item (Join-Path $bin 'NewPcSetup.exe')
+$bin = Join-Path $root 'src\WinHomestead.App\bin\Release\net48'
+$exe = Get-Item (Join-Path $bin 'WinHomestead.exe')
 
 # 2. 校验：依赖已嵌入（exe 内含 costura 资源）、体积上限
 $asm = [System.Reflection.Assembly]::LoadFile($exe.FullName)
 $embedded = @($asm.GetManifestResourceNames() | Where-Object { $_ -like 'costura.*' })
 if ($embedded.Count -eq 0) { throw "Costura 未织入：exe 中没有 costura.* 资源" }
-foreach ($must in 'wpf.ui', 'communitytoolkit.mvvm', 'system.text.json', 'newpcsetup.core', 'newpcsetup.tasks', 'newpcsetup.native') {
+foreach ($must in 'wpf.ui', 'communitytoolkit.mvvm', 'system.text.json', 'winhomestead.core', 'winhomestead.tasks', 'winhomestead.native') {
   if (-not ($embedded | Where-Object { $_ -like "costura.$must.dll*" })) { throw "缺少嵌入依赖: $must" }
 }
 $sizeMB = [math]::Round($exe.Length / 1MB, 2)
@@ -37,8 +37,8 @@ if ($sizeMB -gt $MaxSizeMB) { throw "产物 $sizeMB MB 超过上限 $MaxSizeMB M
 
 # 3. 复制：单 exe + 配置文件（绑定重定向与 supportedRuntime，体积可忽略）
 Copy-Item $exe.FullName $out
-Copy-Item (Join-Path $bin 'NewPcSetup.exe.config') $out
-$target = Join-Path $out 'NewPcSetup.exe'
+Copy-Item (Join-Path $bin 'WinHomestead.exe.config') $out
+$target = Join-Path $out 'WinHomestead.exe'
 
 # 4. 可选签名
 if ($Thumbprint) {

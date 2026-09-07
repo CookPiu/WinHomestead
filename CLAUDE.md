@@ -1,4 +1,4 @@
-# NewPcSetup 项目说明
+# WinHomestead 项目说明
 
 - 目标框架 net48（Windows 自带运行时），SDK 风格工程，用 .NET 10 SDK 构建。
 - 本机 SDK 路径 `D:\Applications\dotnet`（不在 PATH 中）。构建/测试用 `build\build.ps1`，或先执行 `$env:PATH = "D:\Applications\dotnet;$env:PATH"`。

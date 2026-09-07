@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WinHomestead.App/WinHomestead.App.csproj" />
+    <Project Path="src/WinHomestead.Core/WinHomestead.Core.csproj" />
+    <Project Path="src/WinHomestead.Native/WinHomestead.Native.csproj" />
+    <Project Path="src/WinHomestead.Tasks/WinHomestead.Tasks.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WinHomestead.Core.Tests/WinHomestead.Core.Tests.csproj" />
+  </Folder>
+</Solution>

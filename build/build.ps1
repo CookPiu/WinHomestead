@@ -7,10 +7,10 @@ if (Test-Path "$sdk\dotnet.exe") { $env:DOTNET_ROOT = $sdk; $env:PATH = "$sdk;$e
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
 Push-Location $root
 try {
-  dotnet build "$root\NewPcSetup.slnx" -c Debug
+  dotnet build "$root\WinHomestead.slnx" -c Debug
   if ($LASTEXITCODE -ne 0) { throw "build failed" }
   if (-not $NoTest) {
-    dotnet test "$root\NewPcSetup.slnx" -c Debug --no-build
+    dotnet test "$root\WinHomestead.slnx" -c Debug --no-build
     if ($LASTEXITCODE -ne 0) { throw "tests failed" }
   }
 } finally { Pop-Location }
