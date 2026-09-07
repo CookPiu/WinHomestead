@@ -134,7 +134,7 @@ public static class TestData
         OneDrive: new OneDriveInfo(true, true, desktopProtected ? 512 : 0), Gpu: new GpuInfo(Array.Empty<string>(), false),
         KnownFolders: new Dictionary<string, string>(), UserEnvironment: new Dictionary<string, string>(),
         Tools: tools.Select(t => new DetectedTool(t, t, true, null)).ToList(),
-        LargeItems: Array.Empty<LargeItem>(), TakenAt: DateTime.Now);
+        TakenAt: DateTime.Now);
 
     public static Answers Answers(EnvironmentSnapshot s) => new(s.DataDrive, false);
 

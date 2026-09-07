@@ -38,7 +38,6 @@ public class UiSmokeTests
                 Render(new HomeView { DataContext = home });
                 Render(new ReportView { DataContext = new ReportViewModel(services, () => { }) });
                 Render(new SoftwareView { DataContext = new SoftwareViewModel(services, () => { }) });
-                Render(new StorageView { DataContext = new StorageViewModel(services, () => { }) });
                 Render(new CheckupView { DataContext = new CheckupViewModel(services, () => { }) });
 
                 // 黄色提示条靠 InfoBar 自带的关闭按钮，它走 TemplateButtonCommand 并把 IsOpen 置回 false；

@@ -28,11 +28,6 @@ public sealed record GpuInfo(IReadOnlyList<string> Names, bool HagsEnabled);
 
 public sealed record DetectedTool(string Id, string Name, bool Installed, string? ConfiguredPath);
 
-public sealed record LargeItem(string Path, long SizeBytes, string Category)
-{
-    public double SizeGb => SizeBytes / 1073741824d;
-}
-
 public sealed record EnvironmentSnapshot(
     string OsCaption,
     string DisplayVersion,
@@ -55,7 +50,6 @@ public sealed record EnvironmentSnapshot(
     IReadOnlyDictionary<string, string> KnownFolders,
     IReadOnlyDictionary<string, string> UserEnvironment,
     IReadOnlyList<DetectedTool> Tools,
-    IReadOnlyList<LargeItem> LargeItems,
     DateTime TakenAt)
 {
     /// <summary>与资源管理器一致按 GiB 折算；展示时不要再取整，需要精确值时用 RamBytes。</summary>

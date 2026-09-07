@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using NewPcSetup.Core.Abstractions;
 using NewPcSetup.Core.Models;
 
@@ -22,10 +21,7 @@ public sealed class SnapshotCollector
 
     public SnapshotCollector(IRegistry reg, IShell shell, ILogger log) { _reg = reg; _shell = shell; _log = log; }
 
-    /// <summary>
-    /// 只做快的部分：注册表、WMI、卷、已知文件夹、工具探测，通常一秒内完成。
-    /// C 盘大目录扫描要递归几十 GB 的 AppData，拆成 ScanLargeItems 由 C 盘页按需调用。
-    /// </summary>
+    /// <summary>只做快的部分：注册表、WMI、卷、已知文件夹、工具探测，通常一秒内完成。不做任何目录体积扫描。</summary>
     public EnvironmentSnapshot Collect()
     {
         var systemDrive = (Environment.GetEnvironmentVariable("SystemDrive") ?? "C:").TrimEnd('\\');
@@ -61,7 +57,6 @@ public sealed class SnapshotCollector
             KnownFolders: KnownFolders(),
             UserEnvironment: UserEnvironment(),
             Tools: Tools(),
-            LargeItems: Array.Empty<LargeItem>(),
             TakenAt: DateTime.Now);
     }
 
@@ -243,107 +238,6 @@ public sealed class SnapshotCollector
             new("docker", "Docker Desktop", File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Docker", "Docker", "Docker Desktop.exe")), null),
         };
         return list;
-    }
-
-    /// <summary>目录体积扫描的共享截止时间；超过后 DirSize 停止下探，结果偏小并标记 Truncated。</summary>
-    private sealed class ScanBudget
-    {
-        public ScanBudget(TimeSpan budget) { Deadline = DateTime.UtcNow + budget; }
-        public DateTime Deadline { get; }
-        public bool Truncated { get; set; }
-        public bool Expired => DateTime.UtcNow > Deadline;
-    }
-
-    private static readonly TimeSpan LargeItemsBudget = TimeSpan.FromSeconds(12);
-    private const long AppDataThreshold = 1L << 30;
-
-    /// <summary>C 盘大目录扫描：递归几十 GB，几秒到十几秒不等，只在 C 盘页需要时调用。</summary>
-    public IReadOnlyList<LargeItem> ScanLargeItems(string? systemDrive = null)
-        => LargeItems((systemDrive ?? Environment.GetEnvironmentVariable("SystemDrive") ?? "C:").TrimEnd('\\'));
-
-    private List<LargeItem> LargeItems(string systemDrive)
-    {
-        var list = new List<LargeItem>();
-        var budget = new ScanBudget(LargeItemsBudget);
-        var root = systemDrive + "\\";
-        AddFile(list, Path.Combine(root, "hiberfil.sys"), "hiberfil");
-        AddFile(list, Path.Combine(root, "pagefile.sys"), "pagefile");
-
-        // 候选目录：固定项 + AppData 一级子目录；体积并行计算（NVMe 上并行枚举明显更快）
-        var candidates = new List<(string Path, string Category, long Threshold)>
-        {
-            (Path.GetTempPath().TrimEnd('\\'), "temp", 0),
-            (Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "CrossDevice"), "phonelink", 0),
-        };
-        candidates.AddRange(AppDataCandidates().Select(p => (p, "appdata", AppDataThreshold)));
-
-        var gate = new object();
-        Parallel.ForEach(candidates, new ParallelOptions { MaxDegreeOfParallelism = 4 }, c =>
-        {
-            try
-            {
-                if (!Directory.Exists(c.Path)) return;
-                var size = DirSize(new DirectoryInfo(c.Path), budget);
-                if (size >= c.Threshold)
-                    lock (gate) list.Add(new LargeItem(c.Path, size, c.Category));
-            }
-            catch { }
-        });
-        if (budget.Truncated) _log.Warn("大目录扫描超出时间预算，部分体积偏小或缺失");
-        return list.OrderByDescending(i => i.SizeBytes).ToList();
-    }
-
-    /// <summary>AppData\Local、AppData\Roaming 的一级子目录，以及用户目录下的点目录。跳过 Temp/Microsoft/Packages 等系统目录与重解析点。</summary>
-    private static List<string> AppDataCandidates()
-    {
-        var result = new List<string>();
-        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var roots = new List<(string Dir, bool DotOnly)>
-        {
-            (Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), false),
-            (Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), false),
-            (profile, true),
-        };
-        var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Temp", "Microsoft", "Packages", "CrossDevice" };
-        foreach (var (root, dotOnly) in roots)
-        {
-            if (!Directory.Exists(root)) continue;
-            IEnumerable<DirectoryInfo> subs;
-            try { subs = new DirectoryInfo(root).EnumerateDirectories(); } catch { continue; }
-            foreach (var d in subs)
-            {
-                try
-                {
-                    if (dotOnly && !d.Name.StartsWith(".", StringComparison.Ordinal)) continue;
-                    if (!dotOnly && skip.Contains(d.Name)) continue;
-                    if ((d.Attributes & FileAttributes.ReparsePoint) != 0) continue;
-                    result.Add(d.FullName);
-                }
-                catch { }
-            }
-        }
-        return result;
-    }
-
-    private static void AddFile(List<LargeItem> list, string path, string category)
-    {
-        try { if (File.Exists(path)) list.Add(new LargeItem(path, new FileInfo(path).Length, category)); } catch { }
-    }
-
-    private static long DirSize(DirectoryInfo dir, ScanBudget budget)
-    {
-        long total = 0;
-        try
-        {
-            foreach (var f in dir.EnumerateFiles()) { try { total += f.Length; } catch { } }
-            foreach (var d in dir.EnumerateDirectories())
-            {
-                if (budget.Expired) { budget.Truncated = true; break; }
-                try { if ((d.Attributes & FileAttributes.ReparsePoint) == 0) total += DirSize(d, budget); } catch { }
-            }
-        }
-        catch { }
-        return total;
     }
 
     // ---- 注册表小工具 ----

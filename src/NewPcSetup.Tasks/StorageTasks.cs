@@ -143,9 +143,7 @@ public sealed class HibernateOffTask : TaskBase
     public override DetectResult Detect(TaskContext ctx)
     {
         var enabled = ctx.Power.IsHibernateEnabled();
-        var hiber = ctx.Snapshot.LargeItems.FirstOrDefault(i => i.Category == "hiberfil");
-        var size = hiber != null ? $"（hiberfil.sys {hiber.SizeGb:F1} GB）" : string.Empty;
-        return new DetectResult(!enabled, enabled ? "休眠已启用" + size : "休眠已关闭", "休眠关闭");
+        return new DetectResult(!enabled, enabled ? "休眠已启用" : "休眠已关闭", "休眠关闭");
     }
 
     public override void Apply(TaskContext ctx) => ctx.Power.SetHibernate(false);

@@ -167,7 +167,7 @@ public sealed partial class CategoryViewModel : ObservableObject
             "ime" => "中文输入法",
             "promo" => "去推送",
             "gpu" => "显卡",
-            "storage" => "C 盘治理",
+            "storage" => "系统盘",
             _ => key,
         };
     }
@@ -284,7 +284,7 @@ public sealed partial class HomeViewModel : ObservableObject
         if (s.IsMdmEnrolled || s.IsDomainJoined) AddWarning("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
         if (s.DataDrive == null) AddWarning("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘治理”页。");
+        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行“磁盘与路径”里的迁移项。");
 
         await RebuildPlanAsync(s, answers);
     }
