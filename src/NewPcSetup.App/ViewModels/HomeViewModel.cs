@@ -99,6 +99,25 @@ public sealed partial class TaskItemViewModel : ObservableObject
     private Task Run() => _owner.RunAsync(this);
 }
 
+/// <summary>一条黄色提示。用户点 × 后本次运行不再出现，重新探测也不会再冒出来。</summary>
+public sealed partial class WarningViewModel : ObservableObject
+{
+    private readonly Action<string> _onDismiss;
+
+    public WarningViewModel(string text, Action<string> onDismiss)
+    {
+        Text = text; _onDismiss = onDismiss;
+    }
+
+    public string Text { get; }
+    [ObservableProperty] private bool _isOpen = true;
+
+    partial void OnIsOpenChanged(bool value)
+    {
+        if (!value) _onDismiss(Text);
+    }
+}
+
 public sealed partial class CategoryViewModel : ObservableObject
 {
     public const string MachineKey = "machine";
@@ -150,7 +169,9 @@ public sealed partial class HomeViewModel : ObservableObject
     }
 
     public ObservableCollection<CategoryViewModel> Categories { get; } = new();
-    public ObservableCollection<string> Warnings { get; } = new();
+    public ObservableCollection<WarningViewModel> Warnings { get; } = new();
+    /// <summary>本次运行里被关掉的提示，重新探测后不再重复弹。</summary>
+    private readonly HashSet<string> _dismissedWarnings = new(StringComparer.Ordinal);
     /// <summary>“这台电脑”栏位的内容；容量一律给精确值，不做四舍五入。</summary>
     public ObservableCollection<MachineRow> MachineInfo { get; } = new();
     public List<OptionItem> DataDriveOptions { get; private set; } = new();
@@ -164,7 +185,7 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] private bool _explorerRestartPending;
     [ObservableProperty] private bool _rebootPending;
     [ObservableProperty] private bool _canStop;
-    [ObservableProperty] private bool _desktopProtected;
+    [ObservableProperty] private bool _desktopWarningOpen;
     [ObservableProperty] private string _runningLabel = string.Empty;
     [ObservableProperty] private string _summary = string.Empty;
 
@@ -217,14 +238,27 @@ public sealed partial class HomeViewModel : ObservableObject
         _suppressDriveChange = false;
 
         Warnings.Clear();
-        if (!s.IsWindows11) Warnings.Add("当前不是 Windows 11，部分设置项可能不适用。");
-        if (s.IsMdmEnrolled || s.IsDomainJoined) Warnings.Add("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
-        if (s.DataDrive == null) Warnings.Add("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
-        DesktopProtected = s.OneDrive.DesktopProtected;
+        if (!s.IsWindows11) AddWarning("当前不是 Windows 11，部分设置项可能不适用。");
+        if (s.IsMdmEnrolled || s.IsDomainJoined) AddWarning("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
+        if (s.DataDrive == null) AddWarning("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
+        DesktopWarningOpen = s.OneDrive.DesktopProtected && !_dismissedWarnings.Contains(DesktopWarningKey);
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        if (sys != null && sys.FreeGb < 40) Warnings.Add($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘”页。");
+        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘”页。");
 
         await RebuildPlanAsync(s, answers);
+    }
+
+    private const string DesktopWarningKey = "onedrive.desktop";
+
+    private void AddWarning(string text)
+    {
+        if (_dismissedWarnings.Contains(text)) return;
+        Warnings.Add(new WarningViewModel(text, key => _dismissedWarnings.Add(key)));
+    }
+
+    partial void OnDesktopWarningOpenChanged(bool value)
+    {
+        if (!value) _dismissedWarnings.Add(DesktopWarningKey);
     }
 
     /// <summary>硬件信息单独成栏。GB 一律按 GiB 折算并保留两位，另附字节原值，避免"四舍五入后看起来不对"。</summary>

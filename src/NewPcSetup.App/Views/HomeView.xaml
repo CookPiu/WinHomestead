@@ -38,7 +38,7 @@
       <ItemsControl ItemsSource="{Binding Warnings}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <ui:InfoBar IsOpen="True" IsClosable="False" Severity="Warning" Message="{Binding}" Margin="0,0,0,6" />
+            <ui:InfoBar IsOpen="{Binding IsOpen, Mode=TwoWay}" IsClosable="True" Severity="Warning" Message="{Binding Text}" Margin="0,0,0,6" />
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
@@ -54,7 +54,7 @@
           <ui:Button Content="立即重启" Appearance="Primary" Command="{Binding RebootNowCommand}" Margin="0,0,0,8" />
         </ui:InfoBar.Content>
       </ui:InfoBar>
-      <ui:InfoBar IsOpen="{Binding DesktopProtected, Mode=OneWay}" IsClosable="False" Severity="Warning" Title="桌面由 OneDrive 备份接管"
+      <ui:InfoBar IsOpen="{Binding DesktopWarningOpen, Mode=TwoWay}" IsClosable="True" Severity="Warning" Title="桌面由 OneDrive 备份接管"
                   Message="要把桌面迁到数据盘，得先在 OneDrive 设置 → 同步和备份 → 管理备份 里关掉桌面备份。本工具不改 OneDrive 的任何设置。关完回来点“重新探测”。" Margin="0,0,0,6">
         <ui:InfoBar.Content>
           <ui:Button Content="打开 OneDrive 设置" Appearance="Secondary" Command="{Binding OpenOneDriveSettingsCommand}" Margin="0,0,0,8" />

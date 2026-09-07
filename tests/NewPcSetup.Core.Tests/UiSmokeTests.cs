@@ -41,6 +41,12 @@ public class UiSmokeTests
                 Render(new StorageView { DataContext = new StorageViewModel(services, () => { }) });
                 Render(new CheckupView { DataContext = new CheckupViewModel(services, () => { }) });
 
+                // 黄色提示条靠 InfoBar 自带的关闭按钮，它走 TemplateButtonCommand 并把 IsOpen 置回 false；
+                // 这是第三方控件的行为，钉在测试里，换版本时能第一时间发现
+                var bar = new Wpf.Ui.Controls.InfoBar { IsOpen = true, IsClosable = true };
+                bar.TemplateButtonCommand.Execute(null);
+                Assert.False(bar.IsOpen, "InfoBar 的关闭按钮不再把 IsOpen 置为 false，提示条的关闭功能需要改实现");
+
                 var main = new MainWindow { DataContext = new MainViewModel(services) };
                 main.Measure(new Size(1100, 740));
 
