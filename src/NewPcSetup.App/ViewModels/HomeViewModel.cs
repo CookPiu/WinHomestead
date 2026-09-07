@@ -167,7 +167,7 @@ public sealed partial class CategoryViewModel : ObservableObject
             "ime" => "中文输入法",
             "promo" => "去推送",
             "gpu" => "显卡",
-            "storage" => "系统盘",
+            "storage" => "空间清理",
             _ => key,
         };
     }

@@ -124,7 +124,7 @@ public static class TaskCatalog
             // ---- GPU ----
             new HagsTask(),
 
-            // ---- 系统盘：三条可执行项，不做大文件扫描 ----
+            // ---- 空间清理：三条可执行项，不做大文件扫描 ----
             new TempCleanupTask(),
             new HibernateOffTask(),
             Reg("storage.sense", "storage", "开启存储感知", "开启存储感知，并把运行频率设为“磁盘空间不足时”，自动清理临时文件与回收站。", RiskFlags.Reversible, 502, null,
