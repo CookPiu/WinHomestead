@@ -190,25 +190,31 @@ public sealed class WindowsFileSystem : IFileSystem
     }
     public void DeleteEmptyDirectory(string path) => Directory.Delete(path, false);
 
-    public IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before)
+    public FileScan FilesOlderThan(string dir, DateTime before, int maxCount, TimeSpan budget)
     {
         var list = new List<FileEntry>();
-        if (!Directory.Exists(dir)) return list;
-        Walk(new DirectoryInfo(dir), before, list);
-        return list;
+        if (!Directory.Exists(dir)) return new FileScan(list, false);
+        var deadline = DateTime.UtcNow + budget;
+        var truncated = false;
+        Walk(new DirectoryInfo(dir), before, list, maxCount, deadline, ref truncated);
+        return new FileScan(list, truncated);
     }
 
-    private static void Walk(DirectoryInfo dir, DateTime before, List<FileEntry> acc)
+    /// <summary>命中条数上限或超时就立刻收手：用户临时目录里十万个文件是常态，全走一遍要十几秒。</summary>
+    private static void Walk(DirectoryInfo dir, DateTime before, List<FileEntry> acc, int maxCount, DateTime deadline, ref bool truncated)
     {
+        if (truncated) return;
         try
         {
             foreach (var f in dir.EnumerateFiles())
             {
+                if (acc.Count >= maxCount || DateTime.UtcNow > deadline) { truncated = true; return; }
                 try { if (f.LastWriteTime < before) acc.Add(new FileEntry(f.FullName, f.Length)); } catch { }
             }
             foreach (var d in dir.EnumerateDirectories())
             {
-                try { if ((d.Attributes & FileAttributes.ReparsePoint) == 0) Walk(d, before, acc); } catch { }
+                if (acc.Count >= maxCount || DateTime.UtcNow > deadline) { truncated = true; return; }
+                try { if ((d.Attributes & FileAttributes.ReparsePoint) == 0) Walk(d, before, acc, maxCount, deadline, ref truncated); } catch { }
             }
         }
         catch { /* 无权限的子目录跳过 */ }

@@ -22,12 +22,13 @@ public sealed class SnapshotCollector
 
     public SnapshotCollector(IRegistry reg, IShell shell, ILogger log) { _reg = reg; _shell = shell; _log = log; }
 
+    /// <summary>
+    /// 只做快的部分：注册表、WMI、卷、已知文件夹、工具探测，通常一秒内完成。
+    /// C 盘大目录扫描要递归几十 GB 的 AppData，拆成 ScanLargeItems 由 C 盘页按需调用。
+    /// </summary>
     public EnvironmentSnapshot Collect()
     {
         var systemDrive = (Environment.GetEnvironmentVariable("SystemDrive") ?? "C:").TrimEnd('\\');
-        // 大目录扫描最慢，与 WMI/注册表探测并行；自带时间预算，超时返回已完成部分
-        var largeItems = Task.Run(() => LargeItems(systemDrive));
-
         var displayVersion = Str(RegRoot.LocalMachine, CurrentVersion, "DisplayVersion") ?? string.Empty;
         var build = int.TryParse(Str(RegRoot.LocalMachine, CurrentVersion, "CurrentBuildNumber"), out var b) ? b : 0;
         var edition = Str(RegRoot.LocalMachine, CurrentVersion, "EditionID") ?? string.Empty;
@@ -60,7 +61,7 @@ public sealed class SnapshotCollector
             KnownFolders: KnownFolders(),
             UserEnvironment: UserEnvironment(),
             Tools: Tools(),
-            LargeItems: largeItems.Result,
+            LargeItems: Array.Empty<LargeItem>(),
             TakenAt: DateTime.Now);
     }
 
@@ -253,8 +254,12 @@ public sealed class SnapshotCollector
         public bool Expired => DateTime.UtcNow > Deadline;
     }
 
-    private static readonly TimeSpan LargeItemsBudget = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan LargeItemsBudget = TimeSpan.FromSeconds(12);
     private const long AppDataThreshold = 1L << 30;
+
+    /// <summary>C 盘大目录扫描：递归几十 GB，几秒到十几秒不等，只在 C 盘页需要时调用。</summary>
+    public IReadOnlyList<LargeItem> ScanLargeItems(string? systemDrive = null)
+        => LargeItems((systemDrive ?? Environment.GetEnvironmentVariable("SystemDrive") ?? "C:").TrimEnd('\\'));
 
     private List<LargeItem> LargeItems(string systemDrive)
     {

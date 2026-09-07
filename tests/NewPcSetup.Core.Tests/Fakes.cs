@@ -100,7 +100,13 @@ public sealed class FakeFileSystem : IFileSystem
     public readonly Dictionary<string, List<FileEntry>> OldFiles = new(StringComparer.OrdinalIgnoreCase);
     public readonly HashSet<string> Locked = new(StringComparer.OrdinalIgnoreCase);
     public readonly List<string> Deleted = new();
-    public IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before) => OldFiles.TryGetValue(dir, out var l) ? l.ToList() : new List<FileEntry>();
+    /// <summary>按 maxCount 截断，budget 在假实现里不起作用。</summary>
+    public FileScan FilesOlderThan(string dir, DateTime before, int maxCount, TimeSpan budget)
+    {
+        if (!OldFiles.TryGetValue(dir, out var l)) return new FileScan(new List<FileEntry>(), false);
+        var taken = l.Take(maxCount).ToList();
+        return new FileScan(taken, taken.Count < l.Count);
+    }
     public bool TryDeleteFile(string path)
     {
         if (Locked.Contains(path)) return false;

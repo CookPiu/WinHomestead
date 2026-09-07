@@ -90,30 +90,38 @@ public sealed class TempCleanupTask : TaskBase
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp");
     }
 
-    private static IReadOnlyList<FileEntry> OldFiles(TaskContext ctx)
-        => ctx.FileSystem.FilesOlderThan(OldTempDir(ctx.Snapshot), DateTime.Now - MaxAge);
+    /// <summary>探测只要够判断"有没有、大概多少"，所以设上限；整目录走一遍在真实临时目录里要十几秒。</summary>
+    private const int DetectMaxFiles = 3000;
+    private static readonly TimeSpan DetectBudget = TimeSpan.FromMilliseconds(800);
+    /// <summary>执行时才需要完整清单，但同样给个上限，避免极端目录把执行拖到没边；剩下的下次再跑。</summary>
+    private const int ApplyMaxFiles = 200_000;
+    private static readonly TimeSpan ApplyBudget = TimeSpan.FromSeconds(60);
 
     public override DetectResult Detect(TaskContext ctx)
     {
         var dir = OldTempDir(ctx.Snapshot);
-        var files = OldFiles(ctx);
-        var mb = files.Sum(f => f.SizeBytes) / 1048576d;
-        return new DetectResult(files.Count == 0,
-            files.Count == 0 ? $"{dir} 无 7 天前的文件" : $"{dir} 有 {files.Count} 个旧文件，约 {mb:F0} MB",
-            files.Count == 0 ? "无需清理" : $"删除 {files.Count} 个文件，释放约 {mb:F0} MB");
+        var scan = ctx.FileSystem.FilesOlderThan(dir, DateTime.Now - MaxAge, DetectMaxFiles, DetectBudget);
+        var count = scan.Files.Count;
+        if (count == 0) return new DetectResult(true, $"{dir} 无 7 天前的文件", "无需清理");
+        var mb = scan.SizeBytes / 1048576d;
+        var more = scan.Truncated ? "以上" : string.Empty;
+        return new DetectResult(false,
+            $"{dir} 有 {count}{(scan.Truncated ? "+" : string.Empty)} 个旧文件，约 {mb:F0} MB{more}",
+            $"删除 7 天前的临时文件，释放约 {mb:F0} MB{more}");
     }
 
     public override void Apply(TaskContext ctx)
     {
-        var files = OldFiles(ctx);
+        var scan = ctx.FileSystem.FilesOlderThan(OldTempDir(ctx.Snapshot), DateTime.Now - MaxAge, ApplyMaxFiles, ApplyBudget);
         var failed = 0;
-        foreach (var f in files)
+        foreach (var f in scan.Files)
         {
             ctx.Cancellation.ThrowIfCancellationRequested();
             if (!ctx.FileSystem.TryDeleteFile(f.Path)) failed++;
         }
-        ctx.Log.Info($"[{Id}] 删除 {files.Count - failed}/{files.Count} 个旧临时文件");
+        ctx.Log.Info($"[{Id}] 删除 {scan.Files.Count - failed}/{scan.Files.Count} 个旧临时文件");
         if (failed > 0) ctx.ManualSteps.Add($"临时目录清理：{failed} 个文件正被占用未删除，重启后再运行一次即可。");
+        if (scan.Truncated) ctx.ManualSteps.Add("临时目录清理：文件太多，本次只清理了一部分，再执行一次可继续。");
     }
 
     /// <summary>尽力而为：被占用的文件跳过不算失败。</summary>

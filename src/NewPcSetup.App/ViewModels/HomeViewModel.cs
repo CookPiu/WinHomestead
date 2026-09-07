@@ -146,8 +146,7 @@ public sealed partial class HomeViewModel : ObservableObject
     public HomeViewModel(AppServices services)
     {
         _services = services;
-        if (services.Session.Snapshot != null) Populate(services.Session.Snapshot);
-        else _ = DetectAsync();
+        _ = services.Session.Snapshot != null ? PopulateAsync(services.Session.Snapshot) : DetectAsync();
     }
 
     public ObservableCollection<CategoryViewModel> Categories { get; } = new();
@@ -181,10 +180,14 @@ public sealed partial class HomeViewModel : ObservableObject
         RefreshAllCanRun();
         try
         {
-            var snapshot = await Task.Run(() => _services.Collector.Collect());
+            var snapshot = await Task.Run(() =>
+            {
+                var s = _services.Collector.Collect();
+                try { _services.Store.Save("snapshot-latest.json", s); } catch (Exception ex) { _services.Logger.Warn("保存快照失败: " + ex.Message); }
+                return s;
+            });
             _services.Session.Snapshot = snapshot;
-            _services.Store.Save("snapshot-latest.json", snapshot);
-            Populate(snapshot);
+            await PopulateAsync(snapshot);
         }
         catch (Exception ex)
         {
@@ -194,7 +197,7 @@ public sealed partial class HomeViewModel : ObservableObject
         finally { IsBusy = false; RefreshAllCanRun(); }
     }
 
-    private void Populate(EnvironmentSnapshot s)
+    private async Task PopulateAsync(EnvironmentSnapshot s)
     {
         BuildMachineInfo(s);
 
@@ -221,8 +224,7 @@ public sealed partial class HomeViewModel : ObservableObject
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
         if (sys != null && sys.FreeGb < 40) Warnings.Add($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘”页。");
 
-        RebuildPlan(s, answers);
-        Status = "探测完成";
+        await RebuildPlanAsync(s, answers);
     }
 
     /// <summary>硬件信息单独成栏。GB 一律按 GiB 折算并保留两位，另附字节原值，避免"四舍五入后看起来不对"。</summary>
@@ -265,13 +267,33 @@ public sealed partial class HomeViewModel : ObservableObject
     private static string Gb(long bytes) => (bytes / 1073741824d).ToString("F2", CultureInfo.InvariantCulture) + " GB";
     private static string Bytes(long bytes) => bytes.ToString("N0", CultureInfo.InvariantCulture) + " 字节";
 
-    /// <summary>重新 Detect 全部条目并就地刷新列表，保留已有执行结果。</summary>
-    private void RebuildPlan(EnvironmentSnapshot s, Answers answers)
+    /// <summary>
+    /// 重新 Detect 全部条目并就地刷新列表，保留已有执行结果。
+    /// Detect 会读注册表、枚举目录，几十项加起来是秒级，必须在后台线程跑，否则窗口整段无响应。
+    /// </summary>
+    private async Task RebuildPlanAsync(EnvironmentSnapshot s, Answers answers)
     {
-        var plan = _services.Planner.Build(_services.Catalog, s, answers);
-        _services.Session.Plan = plan;
-        try { _services.Runner.SavePlan(plan, s); } catch (Exception ex) { _services.Logger.Warn("保存列表失败: " + ex.Message); }
-        ApplyPlan(plan);
+        IsBusy = true;
+        Status = "正在检查各项当前状态…";
+        RefreshAllCanRun();
+        try
+        {
+            var plan = await Task.Run(() =>
+            {
+                var p = _services.Planner.Build(_services.Catalog, s, answers);
+                try { _services.Runner.SavePlan(p, s); } catch (Exception ex) { _services.Logger.Warn("保存列表失败: " + ex.Message); }
+                return p;
+            });
+            _services.Session.Plan = plan;
+            ApplyPlan(plan);
+            Status = "探测完成";
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Error("生成列表失败", ex);
+            Status = "生成列表失败：" + ex.Message;
+        }
+        finally { IsBusy = false; RefreshAllCanRun(); }
     }
 
     private void ApplyPlan(Plan plan)
@@ -322,7 +344,7 @@ public sealed partial class HomeViewModel : ObservableObject
         if (_suppressDriveChange || _services.Session.Snapshot == null) return;
         var answers = (_services.Session.Answers ?? Answers.Default(_services.Session.Snapshot)) with { DataDrive = string.IsNullOrEmpty(value) ? null : value };
         _services.Session.Answers = answers;
-        RebuildPlan(_services.Session.Snapshot, answers);
+        _ = RebuildPlanAsync(_services.Session.Snapshot, answers);
     }
 
     private void RefreshAllCanRun()
@@ -389,13 +411,11 @@ public sealed partial class HomeViewModel : ObservableObject
                     s = await Task.Run(() => _services.Collector.Collect());
                     _services.Session.Snapshot = s;
                     _services.Session.Answers = null;
-                    Populate(s);
+                    await PopulateAsync(s);
                 }
                 else
                 {
-                    var plan = await Task.Run(() => _services.Planner.Build(_services.Catalog, s, a));
-                    _services.Session.Plan = plan;
-                    ApplyPlan(plan);
+                    await RebuildPlanAsync(s, a);
                 }
             }
             catch (Exception ex) { _services.Logger.Warn("刷新状态失败: " + ex.Message); }

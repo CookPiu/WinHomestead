@@ -46,14 +46,23 @@ public interface IShell
 
 public sealed record FileEntry(string Path, long SizeBytes);
 
+/// <summary>一次有上限的文件扫描结果。Truncated 表示碰到条数上限或时间预算，结果不完整。</summary>
+public sealed record FileScan(IReadOnlyList<FileEntry> Files, bool Truncated)
+{
+    public long SizeBytes { get { long n = 0; foreach (var f in Files) n += f.SizeBytes; return n; } }
+}
+
 public interface IFileSystem
 {
     bool DirectoryExists(string path);
     void CreateDirectory(string path);
     bool IsDirectoryEmpty(string path);
     void DeleteEmptyDirectory(string path);
-    /// <summary>递归列出 dir 下最后写入时间早于 before 的文件；目录不存在时返回空。</summary>
-    IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before);
+    /// <summary>
+    /// 递归列出 dir 下最后写入时间早于 before 的文件；目录不存在时返回空。
+    /// 命中 maxCount 个或用满 budget 后停止并置 Truncated——临时目录动辄十万个文件，探测阶段不能整目录走一遍。
+    /// </summary>
+    FileScan FilesOlderThan(string dir, DateTime before, int maxCount, TimeSpan budget);
     /// <summary>删除单个文件；被占用或无权限时返回 false，不抛出。</summary>
     bool TryDeleteFile(string path);
 }

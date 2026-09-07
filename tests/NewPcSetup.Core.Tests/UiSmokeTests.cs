@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using NewPcSetup.App;
 using NewPcSetup.App.ViewModels;
 using NewPcSetup.App.Views;
@@ -31,6 +32,8 @@ public class UiSmokeTests
                 services.Session.Snapshot = snapshot;
 
                 var home = new HomeViewModel(services);
+                // 列表生成已改到后台线程，测试线程要自己泵一下 Dispatcher 才能等到结果
+                Pump(() => home.Categories.Count > 0, TimeSpan.FromSeconds(30));
                 Assert.NotEmpty(home.Categories);
                 Render(new HomeView { DataContext = home });
                 Render(new ReportView { DataContext = new ReportViewModel(services, () => { }) });
@@ -49,6 +52,19 @@ public class UiSmokeTests
         t.Start();
         t.Join();
         Assert.True(failure == null, failure?.ToString());
+    }
+
+    /// <summary>在没有消息循环的测试线程上驱动 Dispatcher，直到条件成立或超时。</summary>
+    private static void Pump(Func<bool> until, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (!until() && DateTime.UtcNow < deadline)
+        {
+            var frame = new DispatcherFrame();
+            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+            Dispatcher.PushFrame(frame);
+            Thread.Sleep(10);
+        }
     }
 
     private static void Render(UserControl view)

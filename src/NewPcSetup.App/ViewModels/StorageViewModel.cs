@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -55,20 +56,51 @@ public sealed class StorageRow
 
 public sealed partial class StorageViewModel : ObservableObject
 {
+    private readonly AppServices _services;
     private readonly Action _back;
 
     public StorageViewModel(AppServices services, Action back)
     {
-        _back = back;
+        _services = services; _back = back;
         var s = services.Session.Snapshot;
-        if (s == null) { Summary = "尚未完成探测。"; return; }
-        var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
+        var sys = s?.Volumes.FirstOrDefault(v => v.IsSystem);
         Summary = sys == null ? string.Empty : $"{sys.DriveLetter} 共 {sys.SizeGb:F2} GB，已用 {sys.UsedGb:F2} GB，剩余 {sys.FreeGb:F2} GB";
-        foreach (var i in s.LargeItems.OrderByDescending(i => i.SizeBytes)) Rows.Add(new StorageRow(i, s.IsLaptop));
+        _ = LoadAsync();
     }
 
     public string Summary { get; }
     public ObservableCollection<StorageRow> Rows { get; } = new();
+
+    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty] private string _status = string.Empty;
+
+    /// <summary>
+    /// 大目录扫描要递归几十 GB 的 AppData，放在启动探测里会让主界面等十几秒，
+    /// 所以挪到这一页按需扫；扫完写回会话快照，报告页等处也能用。
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadAsync()
+    {
+        var s = _services.Session.Snapshot;
+        if (s == null) { Status = "尚未完成探测。"; return; }
+        if (IsBusy) return;
+        IsBusy = true;
+        Status = "正在扫描 C 盘大目录，几秒到十几秒…";
+        try
+        {
+            var items = await Task.Run(() => _services.Collector.ScanLargeItems(s.SystemDrive));
+            _services.Session.Snapshot = s with { LargeItems = items };
+            Rows.Clear();
+            foreach (var i in items.OrderByDescending(i => i.SizeBytes)) Rows.Add(new StorageRow(i, s.IsLaptop));
+            Status = Rows.Count == 0 ? "没有扫描到值得处理的大目录。" : $"共 {Rows.Count} 项，按占用从大到小排列。";
+        }
+        catch (Exception ex)
+        {
+            _services.Logger.Error("大目录扫描失败", ex);
+            Status = "扫描失败：" + ex.Message;
+        }
+        finally { IsBusy = false; }
+    }
 
     [RelayCommand]
     private void OpenStorageSettings() => Process.Start(new ProcessStartInfo("ms-settings:storagesense") { UseShellExecute = true });

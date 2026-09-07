@@ -102,7 +102,7 @@ internal sealed class JournalingFileSystem : IFileSystem
     public bool DirectoryExists(string path) => _inner.DirectoryExists(path);
     public bool IsDirectoryEmpty(string path) => _inner.IsDirectoryEmpty(path);
     public void DeleteEmptyDirectory(string path) => _inner.DeleteEmptyDirectory(path);
-    public IReadOnlyList<FileEntry> FilesOlderThan(string dir, DateTime before) => _inner.FilesOlderThan(dir, before);
+    public FileScan FilesOlderThan(string dir, DateTime before, int maxCount, TimeSpan budget) => _inner.FilesOlderThan(dir, before, maxCount, budget);
     /// <summary>文件删除不可撤销，不记 journal；调用方任务不得声明 Reversible。</summary>
     public bool TryDeleteFile(string path) => _inner.TryDeleteFile(path);
 

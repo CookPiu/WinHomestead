@@ -12,6 +12,11 @@
     <StackPanel>
       <TextBlock Style="{StaticResource PageTitle}" Text="C 盘占用" />
       <TextBlock Style="{StaticResource PageSubtitle}" Text="{Binding Summary}" />
+      <StackPanel Orientation="Horizontal">
+        <ui:ProgressRing IsIndeterminate="True" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        <TextBlock Text="{Binding Status}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+      </StackPanel>
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -44,7 +49,10 @@
 
     <Grid Grid.Row="2" Margin="0,12,0,0">
       <ui:Button Content="返回" Appearance="Secondary" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
-      <ui:Button Content="打开存储设置" Appearance="Secondary" Command="{Binding OpenStorageSettingsCommand}" HorizontalAlignment="Right" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <ui:Button Content="重新扫描" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding LoadCommand}" />
+        <ui:Button Content="打开存储设置" Appearance="Secondary" Command="{Binding OpenStorageSettingsCommand}" />
+      </StackPanel>
     </Grid>
   </Grid>
 </UserControl>
