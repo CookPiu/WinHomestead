@@ -48,10 +48,23 @@ public sealed partial class TaskItemViewModel : ObservableObject
     public bool NeedsConfirm { get; }
 
     [ObservableProperty] private string _statusLabel = string.Empty;
+    /// <summary>不适用的原因，单独一行显示，不塞进徽标。</summary>
+    [ObservableProperty] private string _reasonText = string.Empty;
+    [ObservableProperty] private bool _hasReason;
     [ObservableProperty] private string _currentValue = string.Empty;
     [ObservableProperty] private string _targetValue = string.Empty;
+    /// <summary>原始键值，悬停在“当前/目标”上时显示。</summary>
+    [ObservableProperty] private string _detail = string.Empty;
+    [ObservableProperty] private bool _hasDetail;
     [ObservableProperty] private bool _showValues;
+    [ObservableProperty] private bool _showRisk;
     [ObservableProperty] private bool _isPlanned;
+    [ObservableProperty] private bool _isSkipped;
+    [ObservableProperty] private bool _isNotApplicable;
+    /// <summary>不适用项的辅助动作，如桌面被 OneDrive 接管时的“打开 OneDrive 设置”。</summary>
+    [ObservableProperty] private string _auxLabel = string.Empty;
+    [ObservableProperty] private bool _hasAux;
+    private Action? _aux;
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private bool _canRun;
     [ObservableProperty] private string _resultMessage = string.Empty;
@@ -63,14 +76,26 @@ public sealed partial class TaskItemViewModel : ObservableObject
     {
         CurrentValue = item.CurrentValue ?? string.Empty;
         TargetValue = item.TargetValue ?? string.Empty;
+        Detail = item.Detail ?? string.Empty;
+        HasDetail = Detail.Length > 0;
         IsPlanned = item.State == PlanState.Planned;
+        IsSkipped = item.State == PlanState.Skipped;
+        IsNotApplicable = item.State == PlanState.NotApplicable;
         ShowValues = IsPlanned && (CurrentValue.Length > 0 || TargetValue.Length > 0);
+        // 已满足的项不再显示风险标签，那是给“要不要点”看的
+        ShowRisk = IsPlanned && RiskLabel.Length > 0;
         StatusLabel = item.State switch
         {
             PlanState.Skipped => "已满足",
-            PlanState.NotApplicable => "不适用" + Reason(item.Reason),
+            PlanState.NotApplicable => "不适用",
             _ => Recommended ? "推荐" : "可选",
         };
+        ReasonText = IsNotApplicable ? Reason(item.Reason) : string.Empty;
+        HasReason = ReasonText.Length > 0;
+        var aux = _owner.AuxActionFor(item);
+        _aux = aux?.Action;
+        AuxLabel = aux?.Label ?? string.Empty;
+        HasAux = _aux != null;
         ButtonText = IsPlanned && result != null && result.Outcome is TaskOutcome.Failed or TaskOutcome.RolledBack ? "重试" : "执行";
         SetResult(result);
         RefreshCanRun();
@@ -92,12 +117,18 @@ public sealed partial class TaskItemViewModel : ObservableObject
     {
         if (reason == null) return string.Empty;
         var i = reason.IndexOf(':');
-        return i >= 0 ? "：" + reason.Substring(i + 1).Trim() : string.Empty;
+        return i >= 0 ? reason.Substring(i + 1).Trim() : reason;
     }
 
     [RelayCommand]
     private Task Run() => _owner.RunAsync(this);
+
+    [RelayCommand]
+    private void Aux() => _aux?.Invoke();
 }
+
+/// <summary>条目卡片上的辅助动作：不改系统，只是把用户带到该去的地方。</summary>
+public sealed record AuxAction(string Label, Action Action);
 
 /// <summary>一条黄色提示。用户点 × 后本次运行不再出现，重新探测也不会再冒出来。</summary>
 public sealed partial class WarningViewModel : ObservableObject
@@ -185,11 +216,22 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] private bool _explorerRestartPending;
     [ObservableProperty] private bool _rebootPending;
     [ObservableProperty] private bool _canStop;
-    [ObservableProperty] private bool _desktopWarningOpen;
     [ObservableProperty] private string _runningLabel = string.Empty;
     [ObservableProperty] private string _summary = string.Empty;
 
     public event Action? RequestShowReport;
+    /// <summary>列表重新生成后触发（探测、换盘、执行完），主窗口据此刷新“执行记录”按钮上的手动项数量。</summary>
+    public event Action? Refreshed;
+
+    /// <summary>桌面被 OneDrive 接管时，“打开 OneDrive 设置”直接放在桌面条目的卡片上，不再另起一条头部提示。</summary>
+    public AuxAction? AuxActionFor(PlanItem item)
+    {
+        var s = _services.Session.Snapshot;
+        if (item.State == PlanState.NotApplicable && s != null && s.OneDrive.DesktopProtected
+            && string.Equals(item.TaskId, "path.known_folder.desktop", StringComparison.OrdinalIgnoreCase))
+            return new AuxAction("打开 OneDrive 设置", OpenOneDriveSettings);
+        return null;
+    }
 
     // ---- 探测与列表 ----
 
@@ -223,7 +265,7 @@ public sealed partial class HomeViewModel : ObservableObject
         BuildMachineInfo(s);
 
         var options = s.Volumes.Where(v => !v.IsSystem)
-            .Select(v => new OptionItem($"{v.DriveLetter} {v.Label}（{v.SizeGb:F0} GB，剩 {v.FreeGb:F0} GB）", v.DriveLetter)).ToList();
+            .Select(v => new OptionItem($"{v.DriveLetter} {v.Label}（{v.SizeGb:F2} GB，剩 {v.FreeGb:F2} GB）", v.DriveLetter)).ToList();
         HasDataDrive = options.Count > 0;
         if (options.Count == 0) options.Add(new OptionItem("无数据盘", string.Empty));
         DataDriveOptions = options;
@@ -241,24 +283,16 @@ public sealed partial class HomeViewModel : ObservableObject
         if (!s.IsWindows11) AddWarning("当前不是 Windows 11，部分设置项可能不适用。");
         if (s.IsMdmEnrolled || s.IsDomainJoined) AddWarning("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
         if (s.DataDrive == null) AddWarning("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
-        DesktopWarningOpen = s.OneDrive.DesktopProtected && !_dismissedWarnings.Contains(DesktopWarningKey);
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘”页。");
+        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行路径迁移并查看“C 盘治理”页。");
 
         await RebuildPlanAsync(s, answers);
     }
-
-    private const string DesktopWarningKey = "onedrive.desktop";
 
     private void AddWarning(string text)
     {
         if (_dismissedWarnings.Contains(text)) return;
         Warnings.Add(new WarningViewModel(text, key => _dismissedWarnings.Add(key)));
-    }
-
-    partial void OnDesktopWarningOpenChanged(bool value)
-    {
-        if (!value) _dismissedWarnings.Add(DesktopWarningKey);
     }
 
     /// <summary>硬件信息单独成栏。GB 一律按 GiB 折算并保留两位，另附字节原值，避免"四舍五入后看起来不对"。</summary>
@@ -320,7 +354,8 @@ public sealed partial class HomeViewModel : ObservableObject
             });
             _services.Session.Plan = plan;
             ApplyPlan(plan);
-            Status = "探测完成";
+            // 探测做完后“探测完成”四个字没有信息量，改成时间，和旁边的“重新探测”对得上
+            Status = "探测于 " + s.TakenAt.ToString("HH:mm:ss");
         }
         catch (Exception ex)
         {
@@ -367,10 +402,14 @@ public sealed partial class HomeViewModel : ObservableObject
         }
         foreach (var stale in Categories.Where(c => !c.IsMachineInfo && !order.Contains(c.Key)).ToList()) Categories.Remove(stale);
 
-        SelectedCategory = Categories.FirstOrDefault(c => c.Key == selectedKey) ?? Categories.FirstOrDefault();
+        // 首次落到第一个有可执行项的分类：工具的核心动作是执行条目，首屏不该停在只读的硬件信息上
+        SelectedCategory = Categories.FirstOrDefault(c => c.Key == selectedKey)
+                           ?? Categories.FirstOrDefault(c => c.IsTaskList && c.Items.Any(i => i.IsPlanned))
+                           ?? Categories.FirstOrDefault();
         var runnable = plan.Items.Count(i => i.State == PlanState.Planned);
         Summary = $"共 {plan.Items.Count} 项 · 可执行 {runnable} 项 · 已满足 {plan.SkippedCount} 项";
         RefreshAllCanRun();
+        Refreshed?.Invoke();
     }
 
     partial void OnDataDriveChanged(string value)

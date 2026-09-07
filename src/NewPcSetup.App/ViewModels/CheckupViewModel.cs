@@ -68,7 +68,7 @@ public sealed partial class CheckupViewModel : ObservableObject
             var checks = await Task.Run(() => _services.Checks.Run(manufacturer));
             Rows.Clear();
             foreach (var c in checks) Rows.Add(new CheckRowViewModel(c));
-            Status = "这些项工具只做检查与跳转，不代为改动。";
+            Status = $"检查于 {DateTime.Now:HH:mm:ss}。这些项工具只做检查与跳转，不代为改动。";
         }
         catch (Exception ex)
         {

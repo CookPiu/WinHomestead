@@ -39,6 +39,9 @@ public partial class App : Application
         }
 
         services.Logger.Info("启动 v" + typeof(App).Assembly.GetName().Version + (e.Args.Length > 0 ? " 参数: " + string.Join(" ", e.Args) : string.Empty));
+        // App.xaml 里的 Theme="Light" 只是设计时默认；运行时跟随系统深浅色，之后的切换由 MainWindow 的 SystemThemeWatcher 接手
+        try { Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme(); }
+        catch (Exception ex) { services.Logger.Warn("套用系统主题失败: " + ex.Message); }
         var mode = DecideStartup(services, Array.IndexOf(e.Args, "--resume") >= 0);
         var window = new MainWindow { DataContext = new MainViewModel(services, mode) };
         MainWindow = window;

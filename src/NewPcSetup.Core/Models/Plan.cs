@@ -28,7 +28,8 @@ public sealed record PlanItem(
     string? TargetValue,
     RiskFlags Risk,
     string? Reason,
-    IReadOnlyList<string> DependsOn);
+    IReadOnlyList<string> DependsOn,
+    string? Detail = null);
 
 public sealed record Plan(string Id, DateTime CreatedAt, Answers Answers, IReadOnlyList<PlanItem> Items)
 {

@@ -14,8 +14,11 @@ public sealed record TaskMetadata(
     IReadOnlyList<string> DependsOn,
     int Order);
 
-/// <summary>Reason 为 "not_applicable" 时 Planner 将该项标为 NotApplicable。</summary>
-public sealed record DetectResult(bool Satisfied, string? CurrentValue, string? TargetValue, string? Reason = null)
+/// <summary>
+/// Reason 为 "not_applicable" 时 Planner 将该项标为 NotApplicable。
+/// CurrentValue / TargetValue 是给人看的文字；Detail 放原始键值（如 "SearchboxTaskbarMode=3 → 1"），界面只在悬停时展示。
+/// </summary>
+public sealed record DetectResult(bool Satisfied, string? CurrentValue, string? TargetValue, string? Reason = null, string? Detail = null)
 {
     public const string NotApplicable = "not_applicable";
     public static DetectResult NotApplicableBecause(string why) => new(false, null, null, NotApplicable + ": " + why);

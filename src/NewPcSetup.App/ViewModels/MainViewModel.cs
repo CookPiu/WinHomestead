@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace NewPcSetup.App.ViewModels;
 
-/// <summary>单窗口：主列表页常驻，执行记录 / 软件推荐 / C 盘 / 检查项 作为可返回的子页。</summary>
+/// <summary>单窗口：主列表页常驻，执行记录 / 软件推荐 / C 盘治理 / 检查项 作为可返回的子页。</summary>
 public sealed partial class MainViewModel : ObservableObject
 {
     private readonly AppServices _services;
@@ -14,14 +14,24 @@ public sealed partial class MainViewModel : ObservableObject
         _services = services;
         _home = new HomeViewModel(services);
         _home.RequestShowReport += ShowReport;
+        _home.Refreshed += RefreshReportLabel;
         CurrentPage = _home;
+        RefreshReportLabel();
         if (mode == StartupMode.Reverify) ShowReport();
     }
 
     [ObservableProperty] private object? _currentPage;
+    /// <summary>“执行记录”按钮文字；有手动项时带数量，没进过记录页的用户也能看到有事要做。</summary>
+    [ObservableProperty] private string _reportLabel = "执行记录";
     public bool IsHome => ReferenceEquals(CurrentPage, _home);
 
     partial void OnCurrentPageChanged(object? value) => OnPropertyChanged(nameof(IsHome));
+
+    private void RefreshReportLabel()
+    {
+        var n = ManualSteps.Collect(_services, ManualSteps.CurrentResult(_services)).Count;
+        ReportLabel = n == 0 ? "执行记录" : $"执行记录（{n} 项手动）";
+    }
 
     [RelayCommand]
     private void ShowSoftware() => CurrentPage = new SoftwareViewModel(_services, Home);
@@ -36,5 +46,9 @@ public sealed partial class MainViewModel : ObservableObject
     private void ShowReport() => CurrentPage = new ReportViewModel(_services, Home);
 
     [RelayCommand]
-    private void Home() => CurrentPage = _home;
+    private void Home()
+    {
+        CurrentPage = _home;
+        RefreshReportLabel();
+    }
 }

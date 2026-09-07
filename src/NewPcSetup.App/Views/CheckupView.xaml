@@ -58,9 +58,6 @@
       </ItemsControl>
     </ScrollViewer>
 
-    <Grid Grid.Row="2" Margin="0,12,0,0">
-      <ui:Button Content="返回" Appearance="Secondary" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
-      <ui:Button Content="重新检查" Appearance="Secondary" Command="{Binding LoadCommand}" HorizontalAlignment="Right" />
-    </Grid>
+    <ui:Button Grid.Row="2" Content="重新检查" Appearance="Secondary" Command="{Binding LoadCommand}" HorizontalAlignment="Right" Margin="0,12,0,0" />
   </Grid>
 </UserControl>

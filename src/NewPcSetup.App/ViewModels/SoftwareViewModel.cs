@@ -40,6 +40,8 @@ public sealed partial class SoftwareItemViewModel : ObservableObject
     public bool CanHavePath { get; }
 
     [ObservableProperty] private bool _installed;
+    /// <summary>勾了“隐藏已安装的”后，已装的项整张卡片收起。</summary>
+    [ObservableProperty] private bool _isVisible = true;
     [ObservableProperty] private string _recommendedPath = string.Empty;
     [ObservableProperty] private bool _isCustomPath;
 
@@ -72,7 +74,7 @@ public sealed partial class SoftwareItemViewModel : ObservableObject
     }
 }
 
-public sealed class SoftwareGroupViewModel
+public sealed partial class SoftwareGroupViewModel : ObservableObject
 {
     public SoftwareGroupViewModel(string category, IEnumerable<SoftwareItemViewModel> items)
     {
@@ -83,6 +85,14 @@ public sealed class SoftwareGroupViewModel
     public string Title { get; }
     public string Hint { get; }
     public ObservableCollection<SoftwareItemViewModel> Items { get; }
+    /// <summary>分类里的项全被隐藏时整个分类连标题一起收起。</summary>
+    [ObservableProperty] private bool _anyVisible = true;
+
+    public void ApplyFilter(bool hideInstalled)
+    {
+        foreach (var i in Items) i.IsVisible = !(hideInstalled && i.Installed);
+        AnyVisible = Items.Any(i => i.IsVisible);
+    }
 }
 
 /// <summary>
@@ -127,8 +137,17 @@ public sealed partial class SoftwareViewModel : ObservableObject
 
     [ObservableProperty] private string _root = string.Empty;
     [ObservableProperty] private string _hint = string.Empty;
+    /// <summary>页面是推荐不是清单，装过的收起来能少看一半卡片。只在本次会话内生效，不持久化。</summary>
+    [ObservableProperty] private bool _hideInstalled;
 
     private IEnumerable<SoftwareItemViewModel> AllItems => Groups.SelectMany(g => g.Items);
+
+    partial void OnHideInstalledChanged(bool value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        foreach (var g in Groups) g.ApplyFilter(HideInstalled);
+    }
 
     partial void OnRootChanged(string value)
     {
@@ -204,6 +223,7 @@ public sealed partial class SoftwareViewModel : ObservableObject
         try { names = _services.Installed.DisplayNames(); } catch { names = Array.Empty<string>(); }
         foreach (var i in AllItems)
             i.Installed = i.Entry.Detect.Length > 0 && names.Any(n => n.IndexOf(i.Entry.Detect, StringComparison.OrdinalIgnoreCase) >= 0);
+        ApplyFilter();
     }
 
     /// <summary>商店"新应用保存位置"无公开接口，只能把用户带到设置页自己改。</summary>

@@ -9,7 +9,7 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <!-- 头部：机器摘要 + 数据盘 + 重新探测 -->
+    <!-- 头部：探测状态 + 汇总 + 数据盘 + 重新探测 -->
     <ui:Card Padding="14,10" Margin="0,0,0,10">
       <Grid>
         <Grid.ColumnDefinitions>
@@ -20,20 +20,20 @@
           <StackPanel Orientation="Horizontal">
             <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="0,0,8,0"
                              Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            <TextBlock Text="{Binding Status}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
-            <TextBlock Text="{Binding Summary}" Style="{StaticResource Muted}" Margin="12,0,0,0" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Summary}" Style="{StaticResource BodyStrongTextBlockStyle}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Status}" Style="{StaticResource Muted}" Margin="12,0,0,0" VerticalAlignment="Center" />
           </StackPanel>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
           <TextBlock Text="数据盘" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,6,0" />
           <ComboBox ItemsSource="{Binding DataDriveOptions}" DisplayMemberPath="Label" SelectedValuePath="Value" SelectedValue="{Binding DataDrive}"
-                    MinWidth="220" IsEnabled="{Binding HasDataDrive}" Margin="0,0,8,0" />
+                    MinWidth="240" IsEnabled="{Binding HasDataDrive}" Margin="0,0,8,0" />
           <ui:Button Content="重新探测" Appearance="Secondary" Command="{Binding DetectCommand}" />
         </StackPanel>
       </Grid>
     </ui:Card>
 
-    <!-- 提示条 -->
+    <!-- 提示条：只放全局性的警告与待办操作；单个条目的情况写在条目卡片上 -->
     <StackPanel Grid.Row="1">
       <ItemsControl ItemsSource="{Binding Warnings}">
         <ItemsControl.ItemTemplate>
@@ -54,13 +54,8 @@
           <ui:Button Content="立即重启" Appearance="Primary" Command="{Binding RebootNowCommand}" Margin="0,0,0,8" />
         </ui:InfoBar.Content>
       </ui:InfoBar>
-      <ui:InfoBar IsOpen="{Binding DesktopWarningOpen, Mode=TwoWay}" IsClosable="True" Severity="Warning" Title="桌面由 OneDrive 备份接管"
-                  Message="要把桌面迁到数据盘，得先在 OneDrive 设置 → 同步和备份 → 管理备份 里关掉桌面备份。本工具不改 OneDrive 的任何设置。关完回来点“重新探测”。" Margin="0,0,0,6">
-        <ui:InfoBar.Content>
-          <ui:Button Content="打开 OneDrive 设置" Appearance="Secondary" Command="{Binding OpenOneDriveSettingsCommand}" Margin="0,0,0,8" />
-        </ui:InfoBar.Content>
-      </ui:InfoBar>
-      <StackPanel Orientation="Horizontal" Margin="4,0,0,6">
+      <StackPanel Orientation="Horizontal" Margin="4,0,0,6"
+                  Visibility="{Binding IsExecuting, Converter={StaticResource BooleanToVisibilityConverter}}">
         <TextBlock Text="{Binding RunningLabel}" Style="{StaticResource Muted}" VerticalAlignment="Center" />
         <ui:Button Content="停止" Appearance="Secondary" Margin="10,0,0,0" Padding="10,2" Command="{Binding StopCommand}"
                    Visibility="{Binding CanStop, Converter={StaticResource BooleanToVisibilityConverter}}" />
@@ -99,6 +94,7 @@
                   <StackPanel>
                     <StackPanel Orientation="Horizontal">
                       <TextBlock Text="{Binding DisplayName}" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                      <!-- 徽标只写状态词；推荐绿、已满足灰绿、不适用灰，扫一眼能分出哪些做完了 -->
                       <Border CornerRadius="8" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
                         <Border.Style>
                           <Style TargetType="Border">
@@ -107,14 +103,47 @@
                               <DataTrigger Binding="{Binding StatusLabel}" Value="推荐">
                                 <Setter Property="Background" Value="{DynamicResource SystemFillColorSuccessBackgroundBrush}" />
                               </DataTrigger>
+                              <DataTrigger Binding="{Binding IsSkipped}" Value="True">
+                                <Setter Property="Background" Value="Transparent" />
+                              </DataTrigger>
                             </Style.Triggers>
                           </Style>
                         </Border.Style>
-                        <TextBlock Text="{Binding StatusLabel}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock FontSize="11">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Text" Value="{Binding StatusLabel}" />
+                              <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSkipped}" Value="True">
+                                  <Setter Property="Text" Value="✓ 已满足" />
+                                  <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsNotApplicable}" Value="True">
+                                  <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
                       </Border>
                     </StackPanel>
                     <TextBlock Text="{Binding Description}" Style="{StaticResource Muted}" Margin="0,2,0,0" />
+                    <!-- 不适用的原因单独一行，可换行 -->
+                    <TextBlock Text="{Binding ReasonText}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               Visibility="{Binding HasReason, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <!-- 当前/目标给人话；原始键值放在悬停提示里 -->
                     <StackPanel Visibility="{Binding ShowValues, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,6,0,0">
+                      <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasDetail}" Value="True">
+                              <Setter Property="ToolTip" Value="{Binding Detail}" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </StackPanel.Style>
                       <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap">
                         <Run Text="当前：" Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run Text="{Binding CurrentValue, Mode=OneWay}" />
                       </TextBlock>
@@ -122,7 +151,8 @@
                         <Run Text="目标：" Foreground="{DynamicResource TextFillColorSecondaryBrush}" /><Run Text="{Binding TargetValue, Mode=OneWay}" />
                       </TextBlock>
                     </StackPanel>
-                    <TextBlock Text="{Binding RiskLabel}" Style="{StaticResource Muted}" Margin="0,4,0,0" />
+                    <TextBlock Text="{Binding RiskLabel}" Style="{StaticResource Muted}" Margin="0,4,0,0"
+                               Visibility="{Binding ShowRisk, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <TextBlock Text="{Binding ResultMessage}" TextWrapping="Wrap" Margin="0,6,0,0"
                                Visibility="{Binding HasResult, Converter={StaticResource BooleanToVisibilityConverter}}">
                       <TextBlock.Style>
@@ -142,6 +172,8 @@
                                      Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
                     <ui:Button Content="{Binding ButtonText}" Appearance="Primary" MinWidth="88" Command="{Binding RunCommand}" IsEnabled="{Binding CanRun}"
                                Visibility="{Binding IsPlanned, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <ui:Button Content="{Binding AuxLabel}" Appearance="Secondary" MinWidth="88" Command="{Binding AuxCommand}"
+                               Visibility="{Binding HasAux, Converter={StaticResource BooleanToVisibilityConverter}}" />
                   </StackPanel>
                 </Grid>
               </ui:Card>

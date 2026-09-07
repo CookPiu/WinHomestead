@@ -38,31 +38,15 @@ public sealed partial class ReportViewModel : ObservableObject
     public ReportViewModel(AppServices services, Action back)
     {
         _services = services; _back = back;
-        var runner = services.Runner;
-        var previous = services.Session.PreviousResult;
-        _result = runner.Results.Count == 0 && previous != null
-            ? previous
-            : new ExecutionResult(runner.SessionId, runner.StartedAt, DateTime.Now, false, runner.RebootPending, runner.Results);
-        Title = ReferenceEquals(_result, previous) ? "上次执行的记录（重启后已复核）" : "本次执行记录";
+        _result = global::NewPcSetup.App.ManualSteps.CurrentResult(services);
+        Title = ReferenceEquals(_result, services.Session.PreviousResult) ? "上次执行的记录（重启后已复核）" : "本次执行记录";
 
         var ok = _result.Count(TaskOutcome.Done) + _result.Count(TaskOutcome.NeedsReboot);
         var failed = _result.Count(TaskOutcome.Failed) + _result.Count(TaskOutcome.RolledBack);
         Summary = _result.Results.Count == 0 ? "还没有执行过任何项。" : $"成功 {ok} 项 · 失败 {failed} 项";
         RebootRequired = _result.RebootRequired;
         foreach (var x in _result.Results) Results.Add(new ResultRow(x));
-        foreach (var step in _result.Results.SelectMany(x => x.ManualSteps)) ManualSteps.Add(step);
-
-        var s = services.Session.Snapshot;
-        if (s != null)
-        {
-            if (s.OneDrive.DesktopProtected) ManualSteps.Add("桌面由 OneDrive 备份接管：如需迁移桌面，先在 OneDrive 设置 → 同步和备份 → 管理备份 中停止桌面备份，再刷新列表。");
-            if (s.HasTool("docker")) ManualSteps.Add("Docker Desktop：在 Settings → Resources → Advanced 中把 Disk image location 改到数据盘 VMs\\docker。");
-            // 只对已经装了的工具提；开荒工具不代为迁移使用中的工具，只把步骤列出来
-            if (s.HasTool("maven")) ManualSteps.Add(@"Maven 已安装：本机仓库位置只能改 %USERPROFILE%\.m2\settings.xml 的 <localRepository>，工具不代改。想搬到数据盘就把它指向 DevCache\m2-repository，已下载的 jar 会重新拉。");
-            if (s.HasTool("android")) ManualSteps.Add("Android SDK 已安装：SDK 与 AVD 镜像动辄几十 GB，改 ANDROID_HOME 不会把它们搬过去。要迁移就在 Android Studio 的 SDK Manager 里改位置并手动移动目录。");
-            var phone = s.LargeItems.FirstOrDefault(i => i.Category == "phonelink" && i.SizeGb >= 1);
-            if (phone != null) ManualSteps.Add($"手机连接缓存占用 {phone.SizeGb:F1} GB（{phone.Path}）：可在“手机连接”应用设置中清理或断开设备。");
-        }
+        foreach (var step in global::NewPcSetup.App.ManualSteps.Collect(services, _result)) ManualSteps.Add(step);
         HasManualSteps = ManualSteps.Count > 0;
     }
 

@@ -40,7 +40,7 @@ public sealed class Planner
                 : d.Satisfied ? PlanState.Skipped : PlanState.Planned;
             var isChecked = state == PlanState.Planned && SafeDefaultChecked(task, snapshot, answers);
             items.Add(new PlanItem(m.Id, m.Module, m.DisplayName, m.Description, state, isChecked,
-                d.CurrentValue, d.TargetValue, m.Risk, d.Reason, m.DependsOn));
+                d.CurrentValue, d.TargetValue, m.Risk, d.Reason, m.DependsOn, d.Detail));
         }
 
         var plan = new Plan(DateTime.Now.ToString("yyyyMMdd-HHmmss"), DateTime.Now, answers, items);

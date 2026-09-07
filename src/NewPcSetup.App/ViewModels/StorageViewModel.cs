@@ -65,7 +65,16 @@ public sealed partial class StorageViewModel : ObservableObject
         var s = services.Session.Snapshot;
         var sys = s?.Volumes.FirstOrDefault(v => v.IsSystem);
         Summary = sys == null ? string.Empty : $"{sys.DriveLetter} 共 {sys.SizeGb:F2} GB，已用 {sys.UsedGb:F2} GB，剩余 {sys.FreeGb:F2} GB";
-        _ = LoadAsync();
+        // 本次会话扫过就直接用，进一次页面等十几秒是设计上要避免的；“重新扫描”才重跑
+        if (s != null && services.Session.LargeItemsScannedAt is { } at) Show(s, at);
+        else _ = LoadAsync();
+    }
+
+    private void Show(EnvironmentSnapshot s, DateTime scannedAt)
+    {
+        Rows.Clear();
+        foreach (var i in s.LargeItems.OrderByDescending(i => i.SizeBytes)) Rows.Add(new StorageRow(i, s.IsLaptop));
+        Status = (Rows.Count == 0 ? "没有扫描到值得处理的大目录。" : $"共 {Rows.Count} 项，按占用从大到小排列。") + $" 扫描于 {scannedAt:HH:mm:ss}。";
     }
 
     public string Summary { get; }
@@ -89,10 +98,10 @@ public sealed partial class StorageViewModel : ObservableObject
         try
         {
             var items = await Task.Run(() => _services.Collector.ScanLargeItems(s.SystemDrive));
-            _services.Session.Snapshot = s with { LargeItems = items };
-            Rows.Clear();
-            foreach (var i in items.OrderByDescending(i => i.SizeBytes)) Rows.Add(new StorageRow(i, s.IsLaptop));
-            Status = Rows.Count == 0 ? "没有扫描到值得处理的大目录。" : $"共 {Rows.Count} 项，按占用从大到小排列。";
+            var updated = s with { LargeItems = items };
+            _services.Session.Snapshot = updated;
+            _services.Session.LargeItemsScannedAt = DateTime.Now;
+            Show(updated, DateTime.Now);
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NewPcSetup.Core.Abstractions;
 using NewPcSetup.Core.Engine;
@@ -54,6 +55,8 @@ public sealed class SessionState
     public EnvironmentSnapshot? Snapshot { get; set; }
     public Answers? Answers { get; set; }
     public Plan? Plan { get; set; }
+    /// <summary>C 盘大目录扫描完成的时间；为 null 表示本次会话还没扫过，C 盘治理页进入时才扫。</summary>
+    public DateTime? LargeItemsScannedAt { get; set; }
     /// <summary>重启后复核（--resume）得到的上次结果；正常启动为 null。</summary>
     public ExecutionResult? PreviousResult { get; set; }
 }

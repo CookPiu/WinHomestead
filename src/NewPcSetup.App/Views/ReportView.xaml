@@ -66,13 +66,10 @@
       </StackPanel>
     </ScrollViewer>
 
-    <Grid Grid.Row="2" Margin="0,12,0,0">
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-        <ui:Button Content="打开日志与记录目录" Appearance="Secondary" Command="{Binding OpenLogsCommand}" Margin="0,0,8,0" />
-        <ui:Button Content="导出 HTML 报告" Appearance="Secondary" Command="{Binding ExportHtmlCommand}" Margin="0,0,8,0" />
-        <TextBlock Text="{Binding ExportStatus}" Style="{StaticResource Muted}" VerticalAlignment="Center" MaxWidth="360" TextTrimming="CharacterEllipsis" />
-      </StackPanel>
-      <ui:Button Content="返回列表" Appearance="Primary" Command="{Binding BackCommand}" HorizontalAlignment="Right" MinWidth="120" />
-    </Grid>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <TextBlock Text="{Binding ExportStatus}" Style="{StaticResource Muted}" VerticalAlignment="Center" MaxWidth="420" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+      <ui:Button Content="打开日志与记录目录" Appearance="Secondary" Command="{Binding OpenLogsCommand}" Margin="0,0,6,0" />
+      <ui:Button Content="导出 HTML 报告" Appearance="Secondary" Command="{Binding ExportHtmlCommand}" />
+    </StackPanel>
   </Grid>
 </UserControl>

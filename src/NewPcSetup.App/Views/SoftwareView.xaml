@@ -38,13 +38,13 @@
       <ItemsControl ItemsSource="{Binding Groups}">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <StackPanel Margin="0,0,0,14">
+            <StackPanel Margin="0,0,0,14" Visibility="{Binding AnyVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
               <TextBlock Text="{Binding Title}" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="4,0,0,2" />
               <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="4,0,0,6" TextWrapping="Wrap" />
               <ItemsControl ItemsSource="{Binding Items}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <ui:Card Padding="14,10" Margin="0,0,0,6">
+                    <ui:Card Padding="14,10" Margin="0,0,0,6" Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                       <Grid>
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="*" />
@@ -83,7 +83,7 @@
     </ScrollViewer>
 
     <Grid Grid.Row="3" Margin="0,12,0,0">
-      <ui:Button Content="返回" Appearance="Secondary" Command="{Binding BackCommand}" HorizontalAlignment="Left" />
+      <CheckBox Content="隐藏已安装的" IsChecked="{Binding HideInstalled}" HorizontalAlignment="Left" VerticalAlignment="Center" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <ui:Button Content="商店应用保存位置" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding OpenSaveLocationsCommand}"
                    ToolTip="微软商店安装的新应用默认装在 C 盘，且无公开接口可改。点此打开 设置 → 存储 → 高级存储设置 → 新内容的保存位置。" />
