@@ -3,8 +3,11 @@ name: build
 on:
   push:
     branches: [main]
+    # 纯文档改动不值得占一次 runner
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
   pull_request:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
   workflow_dispatch:
 
 jobs:
