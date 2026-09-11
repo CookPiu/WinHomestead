@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -9,7 +9,7 @@ using WinHomestead.Core.Models;
 namespace WinHomestead.Native;
 
 /// <summary>
-/// 《01》4.4 的"只提示不执行"检查项：一次只读采集，不改动任何设置。
+/// 《01》4.5 的"只提示不执行"检查项：一次只读采集，不改动任何设置。
 /// 不进启动探测（WMI 查询较慢且这些项与主列表无关），由检查页按需调用。
 /// </summary>
 public sealed record SystemCheck(string Title, string Status, Severity Severity, string Detail, string Advice, string? SettingsUri, string? SettingsLabel);

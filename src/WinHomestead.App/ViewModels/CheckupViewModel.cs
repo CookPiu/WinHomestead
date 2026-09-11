@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using WinHomestead.Native;
 
 namespace WinHomestead.App.ViewModels;
 
-/// <summary>《01》4.4 的检查项：只读展示 + 跳转设置，工具不代改。</summary>
+/// <summary>《01》4.5 的检查项：只读展示 + 跳转设置，工具不代改。</summary>
 public sealed partial class CheckRowViewModel : ObservableObject
 {
     public CheckRowViewModel(SystemCheck check)
