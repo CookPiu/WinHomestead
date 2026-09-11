@@ -227,6 +227,7 @@ public sealed class SnapshotCollector
             new("gradle", "Gradle", Dir(".gradle") || OnPath("gradle.bat") || Set("GRADLE_USER_HOME"), Env("GRADLE_USER_HOME")),
             new("maven", "Maven", Dir(".m2") || OnPath("mvn.cmd"), null),
             new("nuget", "NuGet", Dir(".nuget") || Set("NUGET_PACKAGES"), Env("NUGET_PACKAGES")),
+            new("vcpkg", "vcpkg", OnPath("vcpkg.exe") || Set("VCPKG_ROOT") || Set("VCPKG_DEFAULT_BINARY_CACHE"), Env("VCPKG_DEFAULT_BINARY_CACHE")),
             new("cargo", "Cargo / Rust", Dir(".cargo") || OnPath("cargo.exe") || Set("CARGO_HOME"), Env("CARGO_HOME")),
             new("go", "Go", OnPath("go.exe") || Set("GOPATH"), Env("GOPATH")),
             new("pub", "Flutter / Dart", OnPath("flutter.bat", "dart.exe") || Set("PUB_CACHE"), Env("PUB_CACHE")),

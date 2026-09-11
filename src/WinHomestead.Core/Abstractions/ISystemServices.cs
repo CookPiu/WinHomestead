@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using WinHomestead.Core.Models;
 
@@ -95,6 +95,10 @@ public interface IStorage
     PartitionInfo CreatePartitionUsingMaximumSize(int diskNumber, char driveLetter);
     void FormatNtfs(PartitionInfo partition, string label);
     IReadOnlyList<string> UsedDriveLetters();
+    /// <summary>卷的文件系统名（NTFS / ReFS 等）；读不到返回 null。</summary>
+    string? FileSystemOf(string driveLetter);
+    /// <summary>磁盘上最大的一块连续空闲空间（MSFT_Disk.LargestFreeExtent）；读不到返回 0。</summary>
+    long LargestFreeExtent(int diskNumber);
 }
 
 /// <summary>电源配置。首版只覆盖休眠开关（powercfg /hibernate）。</summary>

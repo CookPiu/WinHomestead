@@ -71,12 +71,21 @@ public sealed class FakeStorage : IStorage
     public long SizeMin = 100L << 30;
     public readonly List<string> Calls = new();
     public readonly List<string> Letters = new() { "C:" };
-    public PartitionInfo? GetPartition(string driveLetter) => string.Equals(driveLetter, "C:", StringComparison.OrdinalIgnoreCase) ? System : null;
+    /// <summary>额外的盘符 → 分区；查不到时只有 C: 有分区信息。</summary>
+    public readonly Dictionary<string, PartitionInfo> Partitions = new(StringComparer.OrdinalIgnoreCase);
+    public PartitionInfo? GetPartition(string driveLetter)
+        => Partitions.TryGetValue(driveLetter, out var p) ? p
+           : string.Equals(driveLetter, "C:", StringComparison.OrdinalIgnoreCase) ? System : null;
     public ShrinkSupport GetSupportedSize(PartitionInfo p) => new(SizeMin, p.SizeBytes);
     public void Resize(PartitionInfo p, long newSizeBytes) { Calls.Add($"resize:{newSizeBytes >> 30}"); System = p with { SizeBytes = newSizeBytes }; }
     public PartitionInfo CreatePartitionUsingMaximumSize(int diskNumber, char driveLetter) { Calls.Add($"create:{driveLetter}"); Letters.Add(driveLetter + ":"); return new PartitionInfo(diskNumber, 3, driveLetter + ":", 1, 1); }
     public void FormatNtfs(PartitionInfo p, string label) => Calls.Add($"format:{p.DriveLetter}:{label}");
     public IReadOnlyList<string> UsedDriveLetters() => Letters;
+    /// <summary>盘符 → 文件系统名；没放进来的按 NTFS 处理。</summary>
+    public readonly Dictionary<string, string> FileSystems = new(StringComparer.OrdinalIgnoreCase);
+    public string? FileSystemOf(string driveLetter) => FileSystems.TryGetValue(driveLetter, out var fs) ? fs : "NTFS";
+    public long FreeExtent;
+    public long LargestFreeExtent(int diskNumber) => FreeExtent;
 }
 
 public sealed class FakePower : IPower

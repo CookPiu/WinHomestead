@@ -17,8 +17,12 @@ public sealed class DevCachePresetTask : TaskBase
 {
     public const string Id = "env.preset";
 
-    /// <summary>ToolId 为空表示与具体工具无关；非空时该工具已安装就跳过这一项。</summary>
-    private sealed record Var(string Name, string RelativeTarget, string? ToolId, string Tool);
+    /// <summary>
+    /// ToolId 为空表示与具体工具无关；非空时该工具已安装就跳过这一项。
+    /// ValueFormat 非空时变量值不是裸路径，而是按该格式拼出来的——Maven 没有专用的仓库路径变量，
+    /// 只能通过 MAVEN_OPTS 传一段 JVM 参数。
+    /// </summary>
+    private sealed record Var(string Name, string RelativeTarget, string? ToolId, string Tool, string? ValueFormat = null);
 
     private static readonly Var[] Vars =
     {
@@ -29,7 +33,9 @@ public sealed class DevCachePresetTask : TaskBase
         new("PNPM_HOME", @"DevCache\pnpm", "pnpm", "pnpm"),
         new("YARN_CACHE_FOLDER", @"DevCache\yarn-cache", "yarn", "Yarn"),
         new("GRADLE_USER_HOME", @"DevCache\gradle", "gradle", "Gradle"),
+        new("MAVEN_OPTS", @"DevCache\maven-repo", "maven", "Maven", "-Dmaven.repo.local={0}"),
         new("NUGET_PACKAGES", @"DevCache\nuget-packages", "nuget", "NuGet"),
+        new("VCPKG_DEFAULT_BINARY_CACHE", @"DevCache\vcpkg-cache", "vcpkg", "vcpkg"),
         new("CARGO_HOME", @"DevCache\cargo", "cargo", "Cargo"),
         new("RUSTUP_HOME", @"DevCache\rustup", "cargo", "rustup"),
         new("GOPATH", @"DevCache\go", "go", "Go"),
@@ -45,10 +51,15 @@ public sealed class DevCachePresetTask : TaskBase
     /// <summary>npm 全局包目录不在 PATH 里的话，npm -g 装出来的命令敲不出来。</summary>
     private const string NpmPrefixVar = "npm_config_prefix";
 
+    /// <summary>变量要写进去的值：默认就是目标目录，带 ValueFormat 的包一层。</summary>
+    private static string Value(Var v, string target) => v.ValueFormat == null ? target : string.Format(v.ValueFormat, target);
+
     public override TaskMetadata Metadata { get; } = new(Id, "env", "预设开发缓存目录（装工具之前做）",
-        "把 pip、npm、pnpm、Gradle、NuGet、Cargo、Go、Conda、Ollama 等的缓存目录通过用户环境变量指到数据盘 DevCache/Models 下。" +
+        "把 pip、npm、pnpm、Gradle、Maven、NuGet、vcpkg、Cargo、Go、Conda、Ollama 等的缓存目录通过用户环境变量指到数据盘 DevCache/Models 下。" +
         "以后装上这些工具，缓存直接落在数据盘，不用事后再搬。已经设过的变量不动；对应工具已经装了的跳过那一项，避免把在用的工具指到空目录。" +
-        "npm 全局包目录会同时追加进用户 PATH。",
+        "npm 全局包目录会同时追加进用户 PATH。" +
+        "两点注意：NUGET_PACKAGES 的优先级高于 nuget.config 里的 globalPackagesFolder，会盖掉仓库自带的设置；" +
+        "Maven 没有专用变量，走的是 MAVEN_OPTS 传 -Dmaven.repo.local，之后自己往 MAVEN_OPTS 里加参数时别把这段覆盖掉。",
         RiskFlags.Reversible | RiskFlags.NeedsSignOut, new[] { PathSkeletonTask.Id }, 130);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a);
@@ -75,7 +86,7 @@ public sealed class DevCachePresetTask : TaskBase
 
         var skipped = Vars.Where(v => v.ToolId != null && ctx.Snapshot.HasTool(v.ToolId!)).Select(v => v.Tool).Distinct().ToList();
         var current = $"{pending.Count} 个变量未设置" + (skipped.Count > 0 ? $"；已装的 {string.Join("、", skipped)} 跳过" : string.Empty);
-        var target = string.Join("; ", pending.Take(4).Select(v => $"{v.Name}={Path.Combine(root, v.RelativeTarget)}"))
+        var target = string.Join("; ", pending.Take(4).Select(v => $"{v.Name}={Value(v, Path.Combine(root, v.RelativeTarget))}"))
                      + (pending.Count > 4 ? $" 等 {pending.Count} 项" : string.Empty);
         return new DetectResult(false, current, target);
     }
@@ -87,7 +98,7 @@ public sealed class DevCachePresetTask : TaskBase
         {
             var target = Path.Combine(root, v.RelativeTarget);
             ctx.FileSystem.CreateDirectory(target);
-            ctx.Environment.Set(EnvScope.User, v.Name, target);
+            ctx.Environment.Set(EnvScope.User, v.Name, Value(v, target));
             if (v.Name == NpmPrefixVar) AddToPath(ctx, target);
         }
     }

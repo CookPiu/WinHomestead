@@ -51,6 +51,21 @@ public class DevCachePresetTaskTests
         Assert.Equal(@"D:\DevCache\pnpm", env.User["PNPM_HOME"]);
     }
 
+    /// <summary>Maven 没有专用的仓库路径变量，写进 MAVEN_OPTS 的是一段 JVM 参数而不是裸路径。</summary>
+    [Fact]
+    public void MavenGetsJvmArgument_VcpkgGetsPlainPath()
+    {
+        var (svc, _, env, _, fs) = TestData.Services();
+        var s = TestData.Snapshot();
+        var ctx = svc.CreateContext(DevCachePresetTask.Id, s, TestData.Answers(s), new InMemoryJournal(), CancellationToken.None);
+
+        new DevCachePresetTask().Apply(ctx);
+
+        Assert.Equal(@"-Dmaven.repo.local=D:\DevCache\maven-repo", env.User["MAVEN_OPTS"]);
+        Assert.Contains(@"D:\DevCache\maven-repo", fs.Dirs);
+        Assert.Equal(@"D:\DevCache\vcpkg-cache", env.User["VCPKG_DEFAULT_BINARY_CACHE"]);
+    }
+
     [Fact]
     public void ExistingVariablesAreLeftAlone()
     {
@@ -68,7 +83,7 @@ public class DevCachePresetTaskTests
     public void AllToolsInstalled_IsNotApplicable()
     {
         var (svc, _, _, _, _) = TestData.Services();
-        var tools = new[] { "pip", "uv", "npm", "pnpm", "yarn", "gradle", "nuget", "cargo", "go", "pub", "conda", "hf", "ollama" };
+        var tools = new[] { "pip", "uv", "npm", "pnpm", "yarn", "gradle", "maven", "nuget", "vcpkg", "cargo", "go", "pub", "conda", "hf", "ollama" };
         var s = TestData.Snapshot("D:", false, tools);
         var ctx = svc.CreateContext(DevCachePresetTask.Id, s, TestData.Answers(s), new InMemoryJournal(), CancellationToken.None);
 

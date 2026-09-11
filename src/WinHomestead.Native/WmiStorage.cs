@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -79,6 +79,31 @@ public sealed class WmiStorage : IStorage
 
     public IReadOnlyList<string> UsedDriveLetters()
         => DriveInfo.GetDrives().Select(d => d.Name.TrimEnd('\\')).ToList();
+
+    public string? FileSystemOf(string driveLetter)
+    {
+        var letter = driveLetter.TrimEnd(':', '\\').ToUpperInvariant();
+        if (letter.Length != 1) return null;
+        try
+        {
+            using var s = new ManagementObjectSearcher($"SELECT FileSystem FROM Win32_LogicalDisk WHERE DeviceID = '{letter}:'");
+            foreach (ManagementObject o in s.Get()) using (o) return o["FileSystem"]?.ToString();
+        }
+        catch (Exception ex) { _log.Warn($"读取 {letter}: 文件系统失败: " + ex.Message); }
+        return null;
+    }
+
+    /// <summary>MSFT_Disk.LargestFreeExtent：磁盘上最大的一块连续空闲空间。</summary>
+    public long LargestFreeExtent(int diskNumber)
+    {
+        try
+        {
+            using var disk = FindDisk(diskNumber);
+            var v = disk["LargestFreeExtent"];
+            return v == null ? 0 : Convert.ToInt64(v);
+        }
+        catch (Exception ex) { _log.Warn($"读取磁盘 {diskNumber} 空闲空间失败: " + ex.Message); return 0; }
+    }
 
     // ---- 内部 ----
 

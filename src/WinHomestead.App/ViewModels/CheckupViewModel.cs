@@ -40,7 +40,10 @@ public sealed partial class CheckRowViewModel : ObservableObject
     }
 }
 
-/// <summary>检查页：BitLocker、杀软、Windows 更新、OEM 预装、默认应用、区域与时区。全部只读，不写任何设置。</summary>
+/// <summary>
+/// 检查页：BitLocker、杀软、Windows 更新、还原点占用、OEM 预装、启动项、刷新率、电池健康、默认应用、区域与时区。
+/// 全部只读，不写任何设置。
+/// </summary>
 public sealed partial class CheckupViewModel : ObservableObject
 {
     private readonly AppServices _services;
@@ -64,8 +67,8 @@ public sealed partial class CheckupViewModel : ObservableObject
         IsBusy = true; Status = "正在检查…";
         try
         {
-            var manufacturer = _services.Session.Snapshot?.Manufacturer ?? string.Empty;
-            var checks = await Task.Run(() => _services.Checks.Run(manufacturer));
+            var snapshot = _services.Session.Snapshot;
+            var checks = await Task.Run(() => _services.Checks.Run(snapshot));
             Rows.Clear();
             foreach (var c in checks) Rows.Add(new CheckRowViewModel(c));
             Status = $"检查于 {DateTime.Now:HH:mm:ss}。这些项工具只做检查与跳转，不代为改动。";

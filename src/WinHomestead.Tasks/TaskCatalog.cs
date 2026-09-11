@@ -40,6 +40,7 @@ public static class TaskCatalog
             // ---- 磁盘 ----
             new DiskSuggestTask(),
             new ShrinkAndCreateTask(),
+            new DevDriveSuggestTask(),
 
             // ---- 路径 ----
             new PathSkeletonTask(),

@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Management;
 using WinHomestead.Core.Abstractions;
+using WinHomestead.Core.Models;
 
 namespace WinHomestead.Native;
 
@@ -36,9 +37,14 @@ public sealed class SystemChecks
         _reg = reg; _installed = installed; _log = log;
     }
 
-    /// <summary>按展示顺序返回全部检查项。任何一项失败只影响它自己。</summary>
-    public IReadOnlyList<SystemCheck> Run(string manufacturer)
-        => new[] { BitLocker(), AntiVirus(), WindowsUpdate(), OemSoftware(manufacturer), DefaultApps(), RegionAndTimeZone() };
+    /// <summary>按展示顺序返回全部检查项。任何一项失败只影响它自己。snapshot 为 null 时与机器相关的几项降级为“未知”。</summary>
+    public IReadOnlyList<SystemCheck> Run(EnvironmentSnapshot? snapshot)
+        => new[]
+        {
+            BitLocker(), AntiVirus(), WindowsUpdate(), PointInTimeRestore(snapshot),
+            OemSoftware(snapshot?.Manufacturer ?? string.Empty), StartupApps(), RefreshRate(), Battery(snapshot),
+            DefaultApps(), RegionAndTimeZone(),
+        };
 
     // ---- BitLocker ----
 
@@ -197,6 +203,120 @@ public sealed class SystemChecks
 
     private static bool Contains(string? text, string keyword)
         => text != null && text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    // ---- 还原点占用 ----
+
+    /// <summary>
+    /// 26H2（Build 26300）起默认开启的 Point-in-time restore：还原点存在本机，最多占 50 GB，
+    /// 每 24 小时建一个、保留 72 小时。没有公开接口能读它的开关和实际占用，所以这里只按版本与
+    /// 系统卷容量说明它会不会被自动打开，具体状态由用户到设置里确认。
+    /// </summary>
+    private static SystemCheck PointInTimeRestore(EnvironmentSnapshot? s)
+    {
+        const string title = "还原点占用";
+        const string uri = "ms-settings:recovery";
+        const string advice = "它最多会在系统盘上占掉 50 GB，设置页里的滑块可以调小上限。空间紧张就调低或关掉，想留一手回滚就保持开启。" +
+                              "本工具不代改，也不会去删它建的还原点——工具收尾时自己创建的那个还原点是另一套机制（系统保护），两者互不影响。";
+        if (s == null)
+            return new SystemCheck(title, "未知", Severity.Info, "还没拿到系统信息。", advice, uri, "打开恢复设置");
+
+        var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
+        var detail = $"系统版本 {s.OsCaption.Trim()}（Build {s.Build}）"
+                     + (sys == null ? "。" : $"；{sys.DriveLetter} 容量 {sys.SizeGb:F2} GB，剩余 {sys.FreeGb:F2} GB。");
+
+        if (s.Build < 26300)
+            return new SystemCheck(title, "本版本未默认开启", Severity.Ok,
+                detail + "Point-in-time restore 从 26H2（Build 26300）起才默认开启，当前版本上要自己到设置里打开。",
+                "升级到 26H2 之后它会自动开启并开始占用系统盘空间，到时候可以在同一个页面调上限。", uri, "打开恢复设置");
+
+        var bigEnough = sys != null && sys.SizeBytes >= 200L * (1L << 30);
+        return new SystemCheck(title, bigEnough ? "多半已默认开启" : "需自行确认", Severity.Info,
+            detail + "26H2 起 Point-in-time restore 默认开启，系统卷 200 GB 以上会自动启用。",
+            advice, uri, "打开恢复设置");
+    }
+
+    // ---- 启动项 ----
+
+    /// <summary>Win32_StartupCommand 只覆盖注册表 Run 键与“启动”文件夹，不含任务计划和服务。</summary>
+    private SystemCheck StartupApps()
+    {
+        const string title = "开机启动项";
+        const string uri = "ms-settings:startupapps";
+        try
+        {
+            var names = new List<string>();
+            using var s = new ManagementObjectSearcher("SELECT Name FROM Win32_StartupCommand");
+            foreach (ManagementObject o in s.Get())
+                using (o)
+                {
+                    var n = o["Name"]?.ToString();
+                    if (!string.IsNullOrWhiteSpace(n)) names.Add(n!.Trim());
+                }
+
+            var distinct = names.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+            if (distinct.Count == 0)
+                return new SystemCheck(title, "未发现", Severity.Ok, "没有读到随开机启动的程序。", "无需处理。", uri, "打开启动应用");
+
+            return new SystemCheck(title, $"{distinct.Count} 项", distinct.Count >= 8 ? Severity.Warning : Severity.Info,
+                "开机自启：" + string.Join("、", distinct.Take(15)) + (distinct.Count > 15 ? " 等" : string.Empty),
+                "新机的自启项多半来自整机厂商的管家与更新助手，和上一项的预装软件是同一批东西。只留输入法、网盘这类确实要开机就在的，" +
+                "其余在“启动应用”里关掉——关掉只是不随开机启动，程序本身还在。本工具不代改。",
+                uri, "打开启动应用");
+        }
+        catch (Exception ex)
+        {
+            _log.Warn("启动项检查失败: " + ex.Message);
+            return new SystemCheck(title, "未知", Severity.Info, "读取启动项失败：" + ex.Message,
+                "可自行在设置的“启动应用”里查看。", uri, "打开启动应用");
+        }
+    }
+
+    // ---- 刷新率 ----
+
+    private static SystemCheck RefreshRate()
+    {
+        const string title = "屏幕刷新率";
+        const string uri = "ms-settings:display-advanced";
+        var mode = DisplayInfo.Primary();
+        if (mode == null)
+            return new SystemCheck(title, "未知", Severity.Info, "读不到当前的显示模式。",
+                "可到“高级显示设置”里自行确认刷新率是否已经拉满。", uri, "打开高级显示设置");
+
+        var detail = $"主显示器 {mode.Width}×{mode.Height}，当前 {mode.Hz} Hz，这个分辨率下最高 {mode.MaxHz} Hz。";
+        return mode.MaxHz > mode.Hz
+            ? new SystemCheck(title, $"{mode.Hz} Hz（可到 {mode.MaxHz} Hz）", Severity.Warning, detail,
+                "高刷屏出厂经常跑在 60 Hz，要自己到“高级显示设置”里选最高值。笔记本用电池时系统可能主动降回 60 Hz，那是省电策略，不是没设好。",
+                uri, "打开高级显示设置")
+            : new SystemCheck(title, $"{mode.Hz} Hz", Severity.Ok, detail, "已经是这个分辨率下的最高刷新率。", uri, "打开高级显示设置");
+    }
+
+    // ---- 电池健康 ----
+
+    private SystemCheck Battery(EnvironmentSnapshot? s)
+    {
+        const string title = "电池健康";
+        const string fresh = "新机刚开箱或刚重装时，电量统计还没有足够样本，满充容量会偏离真实值，正常使用几天之后再看更准。";
+        if (s != null && !s.IsLaptop)
+            return new SystemCheck(title, "不适用", Severity.Info, "这是台式机，没有内置电池。", "无需处理。", null, null);
+
+        var b = BatteryProbe.Read(_log);
+        var cycles = b.CycleCount is > 0 ? $"，循环次数 {b.CycleCount}。" : "；未报告循环次数。";
+        if (!b.HasAny)
+            return new SystemCheck(title, "未知", Severity.Info, "读不到电池容量数据。",
+                "可以自己跑一次 powercfg /batteryreport 看详细报告。" + fresh, null, null);
+
+        if (b.DesignCapacity == null || b.DesignCapacity.Value <= 0 || b.FullChargeCapacity == null)
+            return new SystemCheck(title, "部分数据", Severity.Info,
+                (b.FullChargeCapacity != null ? $"当前满充 {b.FullChargeCapacity} mWh" : $"设计容量 {b.DesignCapacity} mWh") + cycles,
+                "缺另一半容量数据，算不出衰减比例。需要完整数据可以自己跑一次 powercfg /batteryreport。" + fresh, null, null);
+
+        var health = b.FullChargeCapacity.Value * 100.0 / b.DesignCapacity.Value;
+        var detail = $"设计容量 {b.DesignCapacity} mWh，当前满充 {b.FullChargeCapacity} mWh，健康度 {health:F1}%" + cycles;
+        return health < 80
+            ? new SystemCheck(title, $"{health:F0}%", Severity.Warning, detail,
+                "满充容量明显低于设计容量。刚买的新机先排除电量统计不准（正常用几天再看），仍然偏低就联系售后。", null, null)
+            : new SystemCheck(title, $"{health:F0}%", Severity.Ok, detail, "容量正常。" + fresh, null, null);
+    }
 
     // ---- 默认应用 ----
 
