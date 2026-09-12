@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using WinHomestead.App;
 using WinHomestead.App.ViewModels;
 using WinHomestead.Core.Infrastructure;
 using WinHomestead.Tasks;
@@ -56,6 +57,39 @@ public class LocalizationTests
             L.Chinese = true;
             Assert.Equal("这台电脑", new CategoryViewModel(CategoryViewModel.MachineKey).Title);
             Assert.True(TaskCatalog.BuildFresh().All(t => t.Metadata.DisplayName.Length > 0));
+        }
+        finally { L.Chinese = was; }
+    }
+
+    /// <summary>--lang 覆盖：中文系统上想看英文界面，或者反过来。</summary>
+    [Theory]
+    [InlineData(new[] { "--lang", "en" }, false)]
+    [InlineData(new[] { "--lang=en-US" }, false)]
+    [InlineData(new[] { "--lang", "zh" }, true)]
+    [InlineData(new[] { "--lang=zh-Hans" }, true)]
+    public void LanguageOverrideFromArgs(string[] args, bool expectChinese)
+    {
+        var was = L.Chinese;
+        try
+        {
+            L.Chinese = !expectChinese;
+            AppLanguage.Apply(args);
+            Assert.Equal(expectChinese, L.Chinese);
+        }
+        finally { L.Chinese = was; }
+    }
+
+    [Fact]
+    public void LanguageOverrideIgnoresJunk()
+    {
+        var was = L.Chinese;
+        try
+        {
+            L.Chinese = true;
+            AppLanguage.Apply(new[] { "--resume" });
+            Assert.True(L.Chinese, "没有 --lang 时不该动语言");
+            AppLanguage.Apply(new[] { "--lang" });
+            Assert.True(L.Chinese, "--lang 后面没值时不该动语言");
         }
         finally { L.Chinese = was; }
     }

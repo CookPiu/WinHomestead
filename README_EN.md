@@ -42,6 +42,8 @@ When SmartScreen shows the blue box, click **More info** → **Run anyway**. If 
 - An administrator account (the app elevates once at startup)
 - No .NET install needed — it runs on the .NET Framework 4.8 that ships with Windows
 
+The interface follows your system language. To force one: `WinHomestead.exe --lang en` or `--lang zh`.
+
 ## What it does
 
 **UI and interaction** — the first batch you change after a clean install

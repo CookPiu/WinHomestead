@@ -16,6 +16,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        AppLanguage.Apply(e.Args);
 
         AppServices services;
         try { services = AppServices.Create(); }
