@@ -201,9 +201,10 @@ The design documents are written in Chinese:
 
 ## Contributing
 
-Issues and PRs welcome. Before you submit:
+Issues and PRs welcome. [CONTRIBUTING.md](CONTRIBUTING.md) (Chinese) covers the layering rules, the four stages of a task, how the bilingual strings work and a few traps worth knowing. The essentials:
 
 - A new task must implement Detect / Apply / Verify / Rollback, with writes going through the journaling wrappers on `TaskContext`
+- User-facing strings are always bilingual: `L.S("中文", "English")`
 - Update the corresponding document under `docs/` when scope or flow changes
 - Run `.\build\build.ps1` — zero warnings, zero errors, all tests green
 - Tasks that uninstall preinstalled apps, disable services, or turn off updates won't be accepted; see [what it deliberately doesn't do](#what-it-deliberately-doesnt-do)

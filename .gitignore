@@ -1,4 +1,4 @@
-bin/
+﻿bin/
 obj/
 artifacts/
 .vs/
@@ -6,3 +6,13 @@ artifacts/
 *.suo
 TestResults/
 *.log
+
+# 模型工具的本地配置，不进仓库；工程约定见 CONTRIBUTING.md
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+.github/copilot-instructions.md

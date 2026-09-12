@@ -196,9 +196,10 @@ build/                    构建脚本与只读采集脚本
 
 ## 贡献
 
-欢迎 issue 和 PR。提交前请注意：
+欢迎 issue 和 PR。动手前先看 [CONTRIBUTING.md](CONTRIBUTING.md)，那里写着分层约束、任务的四个环节、双语文案的写法和几个容易踩的坑。几条最要紧的：
 
 - 新任务必须实现 Detect / Apply / Verify / Rollback 四个环节，写操作走 `TaskContext` 里带 journal 的封装
+- 用户可见的文案一律双语：`L.S("中文", "English")`
 - 改动范围或流程时同步更新 `docs/` 下对应文档
 - 跑一遍 `.\build\build.ps1`，保证 0 警告 0 错误、测试全绿
 - 卸载预装应用、禁用服务、关闭更新这类任务不会被接受，理由见[不做什么](#不做什么)
