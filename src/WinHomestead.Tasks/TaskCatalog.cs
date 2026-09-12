@@ -16,6 +16,7 @@ public static class TaskCatalog
     private const string DesktopIcons = @"Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel";
     private const string ImeChs = @"Software\Microsoft\InputMethod\Settings\CHS";
     private const string StoragePolicy = @"Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy";
+    private const string CabinetState = @"Software\Microsoft\Windows\CurrentVersion\Explorer\CabinetState";
 
     private static readonly RiskFlags UiRisk = RiskFlags.Reversible | RiskFlags.NeedsExplorerRestart;
     private static readonly RiskFlags SignOutRisk = RiskFlags.Reversible | RiskFlags.NeedsSignOut;
@@ -94,6 +95,18 @@ public static class TaskCatalog
             Reg("ui.dark_mode", "ui", "深色模式", "系统与应用均使用深色主题。", RiskFlags.Reversible, 224, Optional,
                 Dword(Personalize, "AppsUseLightTheme", 0).As("应用主题", "未设置（默认浅色）", (0, "深色"), (1, "浅色")),
                 Dword(Personalize, "SystemUsesLightTheme", 0).As("系统主题", "未设置（默认浅色）", (0, "深色"), (1, "浅色"))),
+            Reg("ui.full_path", "ui", "标题栏显示完整路径", "资源管理器标题栏显示当前目录的完整路径，而不是只有文件夹名。", UiRisk, 225, Optional,
+                Dword(CabinetState, "FullPath", 1).As("标题栏路径", "未设置（默认只显示文件夹名）", (1, "完整路径"), (0, "只显示文件夹名"))),
+            Reg("ui.taskbar_never_combine", "ui", "任务栏按钮从不合并", "同一程序的多个窗口在任务栏上各占一格并显示标题，不再叠成一个图标。", UiRisk, 226, Optional,
+                Dword(Adv, "TaskbarGlomLevel", 2).As("任务栏按钮", "未设置（默认始终合并）", (0, "始终合并"), (1, "任务栏已满时合并"), (2, "从不合并")),
+                Dword(Adv, "MMTaskbarGlomLevel", 2).As("副屏任务栏按钮", "未设置（默认始终合并）", (0, "始终合并"), (1, "任务栏已满时合并"), (2, "从不合并"))),
+            Reg("ui.clock_seconds", "ui", "任务栏时间显示秒", "系统托盘的时钟精确到秒。微软标注此项会略微增加功耗。", UiRisk, 227, Optional,
+                Dword(Adv, "ShowSecondsInSystemClock", 1).As("时钟精度", "未设置（默认不显示秒）", (1, "显示秒"), (0, "不显示秒"))),
+            Reg("ui.quick_access_clean", "ui", "快速访问不显示最近项目", "资源管理器主页不再列出最近用过的文件和常用文件夹，共用电脑时少一份痕迹。", UiRisk, 228, Optional,
+                Dword(Adv, "ShowRecent", 0).As("最近用过的文件", "未设置（默认显示）", (1, "显示"), (0, "隐藏")),
+                Dword(Adv, "ShowFrequent", 0).As("常用文件夹", "未设置（默认显示）", (1, "显示"), (0, "隐藏"))),
+            Reg("ui.no_aero_shake", "ui", "关闭抖动最小化", "拖着窗口晃两下不再把其它窗口全部最小化，避免误触。", UiRisk, 229, Optional,
+                Dword(Adv, "DisallowShaking", 1).As("抖动最小化", "未设置（默认开启）", (1, "关闭"), (0, "开启"))),
 
             // ---- 中文输入法（值含义来自社区整理：Default Mode 0 中文/1 英文；English Switch Key 0 Shift/1 Ctrl/2 关闭；
             //      EnableChineseEnglishPunctuationSwitch 1 开/0 关，对应 Ctrl+. 标点切换）----
@@ -118,6 +131,8 @@ public static class TaskCatalog
             Reg("promo.bing_search", "promo", "关闭任务栏搜索联网结果", "任务栏搜索只搜本机，不再显示必应结果和搜索高亮。", UiRisk, 403, Optional,
                 OnOff(Dword(Search, "BingSearchEnabled", 0), "必应联网结果"),
                 OnOff(Dword(@"Software\Microsoft\Windows\CurrentVersion\SearchSettings", "IsDynamicSearchBoxEnabled", 0), "搜索高亮")),
+            Reg("promo.sync_notifications", "promo", "关闭资源管理器里的同步提供程序通知", "资源管理器不再插播 OneDrive 之类的推广横幅。这一项只关广告位，不影响 OneDrive 本身的同步。", UiRisk, 405, Optional,
+                Dword(Adv, "ShowSyncProviderNotifications", 0).As("同步提供程序通知", "未设置（默认显示）", (1, "显示"), (0, "隐藏"))),
             Reg("promo.ad_id", "promo", "关闭广告 ID 与定制体验", "应用不再通过广告 ID 投放个性化广告，系统不再基于诊断数据推送定制内容。", RiskFlags.Reversible, 404, Optional,
                 OnOff(Dword(@"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", 0), "广告 ID"),
                 OnOff(Dword(@"Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", 0), "定制体验")),
