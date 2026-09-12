@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -45,9 +45,12 @@ public sealed class ExecutionCoordinator
             try
             {
                 var ctx = _services.CreateContext(r.TaskId, session.Snapshot, session.Plan.Answers, scratch, CancellationToken.None);
-                return task.Verify(ctx) ? r with { Outcome = TaskOutcome.Done, Message = "重启后已确认生效" } : r with { Outcome = TaskOutcome.Failed, Message = "重启后校验未通过" };
+                return task.Verify(ctx)
+                    ? r with { Outcome = TaskOutcome.Done, Message = L.S("重启后已确认生效", "confirmed after reboot") }
+                    : r with { Outcome = TaskOutcome.Failed, Message = L.S("重启后校验未通过", "verification failed after reboot") };
             }
-            catch (Exception ex) { return r with { Outcome = TaskOutcome.Failed, Message = "重启后校验异常: " + ex.Message }; }
+            catch (Exception ex) { return r with { Outcome = TaskOutcome.Failed,
+                Message = L.S("重启后校验异常: ", "verification threw after reboot: ") + ex.Message }; }
         }).ToList();
         var result = session.Result with { Results = results, RebootRequired = false };
         _store.Save($"result-{session.Plan.Id}.json", result);

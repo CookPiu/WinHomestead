@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WinHomestead.Core.Infrastructure;
 
 namespace WinHomestead.App.ViewModels;
 
@@ -22,7 +23,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private object? _currentPage;
     /// <summary>“执行记录”按钮文字；有手动项时带数量，没进过记录页的用户也能看到有事要做。</summary>
-    [ObservableProperty] private string _reportLabel = "执行记录";
+    [ObservableProperty] private string _reportLabel = L.S("执行记录", "Run log");
     public bool IsHome => ReferenceEquals(CurrentPage, _home);
 
     partial void OnCurrentPageChanged(object? value) => OnPropertyChanged(nameof(IsHome));
@@ -30,7 +31,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void RefreshReportLabel()
     {
         var n = ManualSteps.Collect(_services, ManualSteps.CurrentResult(_services)).Count;
-        ReportLabel = n == 0 ? "执行记录" : $"执行记录（{n} 项手动）";
+        ReportLabel = n == 0 ? L.S("执行记录", "Run log") : L.S($"执行记录（{n} 项手动）", $"Run log ({n} manual)");
     }
 
     [RelayCommand]

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -59,7 +59,7 @@ public sealed class SessionRunner
     {
         if (_restorePointTried) return;
         _restorePointTried = true;
-        status?.Report("正在创建系统还原点…");
+        status?.Report(L.S("正在创建系统还原点…", "Creating a system restore point…"));
         try
         {
             if (!_restore.CreateRestorePoint("WinHomestead " + SessionId))
@@ -91,7 +91,7 @@ public sealed class SessionRunner
             };
             _journal ??= new FileJournal(_store.PathFor($"journal-{SessionId}.jsonl"));
             _store.SaveState(new AppState(SessionId, true));
-            status?.Report("正在执行…");
+            status?.Report(L.S("正在执行…", "Running…"));
             var result = new TaskRunner(_services).Run(subPlan, catalog, snapshot, _journal, progress, ct, restartExplorer: false);
 
             var byId = catalog.ToDictionary(t => t.Metadata.Id, StringComparer.OrdinalIgnoreCase);

@@ -25,8 +25,12 @@ public static class ManualSteps
             "Docker Desktop：在 Settings → Resources → Advanced 中把 Disk image location 改到数据盘 VMs\\docker。",
             "Docker Desktop: point Disk image location at VMs\\docker on the data drive, under Settings → Resources → Advanced."));
         // 只对已经装了的工具提；开荒工具不代为迁移使用中的工具，只把步骤列出来
-        if (s.HasTool("maven")) steps.Add(@"Maven 已安装：本机仓库位置只能改 %USERPROFILE%\.m2\settings.xml 的 <localRepository>，工具不代改。想搬到数据盘就把它指向 DevCache\m2-repository，已下载的 jar 会重新拉。");
-        if (s.HasTool("android")) steps.Add("Android SDK 已安装：SDK 与 AVD 镜像动辄几十 GB，改 ANDROID_HOME 不会把它们搬过去。要迁移就在 Android Studio 的 SDK Manager 里改位置并手动移动目录。");
+        if (s.HasTool("maven")) steps.Add(L.S(
+            @"Maven 已安装：本机仓库位置只能改 %USERPROFILE%\.m2\settings.xml 的 <localRepository>，工具不代改。想搬到数据盘就把它指向 DevCache\m2-repository，已下载的 jar 会重新拉。",
+            @"Maven is installed: the local repository path lives in <localRepository> inside %USERPROFILE%\.m2\settings.xml and this tool won't edit it. Point it at DevCache\m2-repository on the data drive if you want it moved; the jars will be fetched again."));
+        if (s.HasTool("android")) steps.Add(L.S(
+            "Android SDK 已安装：SDK 与 AVD 镜像动辄几十 GB，改 ANDROID_HOME 不会把它们搬过去。要迁移就在 Android Studio 的 SDK Manager 里改位置并手动移动目录。",
+            "Android SDK is installed: the SDK and AVD images run to tens of gigabytes, and changing ANDROID_HOME does not move them. To relocate, set the new path in Android Studio's SDK Manager and move the folders by hand."));
         return steps;
     }
 

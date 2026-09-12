@@ -18,7 +18,7 @@
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel>
         <ui:InfoBar IsOpen="{Binding RebootRequired, Mode=OneWay}" IsClosable="False" Severity="Informational" Title="{local:Loc Zh='需要重启', En='Restart required'}"
-                    Message="部分改动在重启后生效。点“立即重启”会在重启后自动打开本工具确认结果；也可以稍后手动重启。" Margin="0,0,0,8">
+                    Message="{local:Loc Zh='部分改动在重启后生效。点“立即重启”会在重启后自动打开本工具确认结果；也可以稍后手动重启。', En='Some changes take effect after a reboot. Restart now and the tool reopens afterwards to confirm the results, or reboot later yourself.'}" Margin="0,0,0,8">
           <ui:InfoBar.Content>
             <ui:Button Content="{local:Loc Zh='立即重启', En='Restart now'}" Appearance="Primary" Command="{Binding RebootNowCommand}" Margin="0,0,0,8" />
           </ui:InfoBar.Content>

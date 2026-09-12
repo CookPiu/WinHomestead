@@ -8,7 +8,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="开荒" Width="1100" Height="740" MinWidth="900" MinHeight="600"
+        Title="{local:Loc Zh='开荒', En='WinHomestead'}" Width="1100" Height="740" MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
         WindowBackdropType="Mica"
@@ -20,7 +20,7 @@
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <ui:TitleBar Grid.Row="0" Title="开荒" />
+    <ui:TitleBar Grid.Row="0" Title="{local:Loc Zh='开荒', En='WinHomestead'}" />
 
     <!-- 顶部导航：主列表常驻，其余为子页 -->
     <Grid Grid.Row="1" Margin="28,4,28,0">
