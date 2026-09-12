@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WinHomestead.Core.Models;
+using WinHomestead.Core.Infrastructure;
 using WinHomestead.Native;
 
 namespace WinHomestead.App.ViewModels;
@@ -83,13 +84,13 @@ public sealed partial class StartupViewModel : ObservableObject
     public ObservableCollection<StartupRowViewModel> Rows { get; } = new();
 
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _status = "正在读取…";
+    [ObservableProperty] private string _status = L.S("正在读取…", "Reading…");
 
     [RelayCommand]
     private async Task LoadAsync()
     {
         if (IsBusy) return;
-        IsBusy = true; Status = "正在读取…";
+        IsBusy = true; Status = L.S("正在读取…", "Reading…");
         try
         {
             var items = await Task.Run(() => _startup.Enumerate());
@@ -97,13 +98,14 @@ public sealed partial class StartupViewModel : ObservableObject
             foreach (var i in items) Rows.Add(new StartupRowViewModel(i, Toggle));
             var on = items.Count(i => i.Enabled);
             Status = items.Count == 0
-                ? "没有读到自启项。"
-                : $"{items.Count} 项，其中 {on} 项会随开机启动。关掉只是不再自动启动，程序本身还在。";
+                ? L.S("没有读到自启项。", "No startup items found.")
+                : L.S($"{items.Count} 项，其中 {on} 项会随开机启动。关掉只是不再自动启动，程序本身还在。",
+                      $"{items.Count} items, {on} of them start with Windows. Switching one off only stops the autostart \u2014 the program itself stays installed.");
         }
         catch (Exception ex)
         {
             _services.Logger.Error("读取启动项失败", ex);
-            Status = "读取失败：" + ex.Message;
+            Status = L.S("读取失败：", "Failed to read: ") + ex.Message;
         }
         finally { IsBusy = false; }
     }
@@ -112,7 +114,7 @@ public sealed partial class StartupViewModel : ObservableObject
     private bool Toggle(StartupRowViewModel row, bool enabled)
     {
         var snapshot = _services.Session.Snapshot;
-        if (snapshot == null) { row.Error = "还没探测完，稍后再试"; return false; }
+        if (snapshot == null) { row.Error = L.S("还没探测完，稍后再试", "Probing hasn't finished yet, try again in a moment"); return false; }
         try
         {
             var answers = _services.Session.Answers ?? new Answers(snapshot.DataDrive, false);
@@ -124,7 +126,10 @@ public sealed partial class StartupViewModel : ObservableObject
         catch (Exception ex)
         {
             _services.Logger.Error($"切换自启项 {row.Name} 失败", ex);
-            row.Error = row.NeedsAdmin ? "写入失败（这一项属于所有用户，需要管理员权限）：" + ex.Message : "写入失败：" + ex.Message;
+            row.Error = row.NeedsAdmin
+                ? L.S("写入失败（这一项属于所有用户，需要管理员权限）：",
+                      "Write failed (this entry applies to all users and needs administrator rights): ") + ex.Message
+                : L.S("写入失败：", "Write failed: ") + ex.Message;
             return false;
         }
     }

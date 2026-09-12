@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WinHomestead.Native;
+using WinHomestead.Core.Infrastructure;
 
 namespace WinHomestead.App.ViewModels;
 
@@ -58,25 +59,26 @@ public sealed partial class CheckupViewModel : ObservableObject
     public ObservableCollection<CheckRowViewModel> Rows { get; } = new();
 
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _status = "正在检查…";
+    [ObservableProperty] private string _status = L.S("正在检查…", "Checking…");
 
     [RelayCommand]
     private async Task LoadAsync()
     {
         if (IsBusy) return;
-        IsBusy = true; Status = "正在检查…";
+        IsBusy = true; Status = L.S("正在检查…", "Checking…");
         try
         {
             var snapshot = _services.Session.Snapshot;
             var checks = await Task.Run(() => _services.Checks.Run(snapshot));
             Rows.Clear();
             foreach (var c in checks) Rows.Add(new CheckRowViewModel(c));
-            Status = $"检查于 {DateTime.Now:HH:mm:ss}。这些项工具只做检查与跳转，不代为改动。";
+            Status = L.S($"检查于 {DateTime.Now:HH:mm:ss}。这些项工具只做检查与跳转，不代为改动。",
+                $"Checked at {DateTime.Now:HH:mm:ss}. These items are read-only \u2014 the tool reports and links, it never changes them for you.");
         }
         catch (Exception ex)
         {
             _services.Logger.Error("检查项失败", ex);
-            Status = "检查失败：" + ex.Message;
+            Status = L.S("检查失败：", "Check failed: ") + ex.Message;
         }
         finally { IsBusy = false; }
     }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -38,14 +38,14 @@ public sealed class SoftwareCatalog
 
     public static string CategoryLabel(string c) => c switch
     {
-        "tools" => "基础工具",
-        "browser" => "浏览器",
-        "im" => "通讯",
-        "office" => "办公 / 笔记",
-        "media" => "媒体",
-        "dev" => "开发",
-        "game" => "游戏",
-        "runtime" => "运行库",
+        "tools" => L.S("基础工具", "Essentials"),
+        "browser" => L.S("浏览器", "Browsers"),
+        "im" => L.S("通讯", "Messaging"),
+        "office" => L.S("办公 / 笔记", "Office and notes"),
+        "media" => L.S("媒体", "Media"),
+        "dev" => L.S("开发", "Development"),
+        "game" => L.S("游戏", "Games"),
+        "runtime" => L.S("运行库", "Runtimes"),
         _ => c,
     };
 
@@ -67,21 +67,29 @@ public sealed class SoftwareCatalog
     /// <summary>分类下的一句话说明，帮着挑，不是要求全装。</summary>
     public static string CategoryHint(string c) => c switch
     {
-        "tools" => "解压、截图、搜索这类天天用得上的小工具，挑顺手的装。",
-        "browser" => "系统自带 Edge 已经够用，习惯别家的再装。",
-        "im" => "按你实际在用的选，用不到的不必装。",
-        "office" => "写文档和记笔记，按习惯二选一即可。",
-        "media" => "系统自带播放器解码有限，常看片或录屏再考虑。",
-        "dev" => "只写代码才需要，不开发可以整段跳过。",
-        "game" => "平台本体装到 Applications，游戏库单独放数据盘的 Games。",
-        "runtime" => "老程序常缺的运行库，遇到报错再装也来得及。",
+        "tools" => L.S("解压、截图、搜索这类天天用得上的小工具，挑顺手的装。",
+            "Archivers, screenshot tools, instant search \u2014 the small things you reach for daily. Pick what suits you."),
+        "browser" => L.S("系统自带 Edge 已经够用，习惯别家的再装。",
+            "The bundled Edge is perfectly usable; install another only if you are used to one."),
+        "im" => L.S("按你实际在用的选，用不到的不必装。", "Install the ones you actually use and skip the rest."),
+        "office" => L.S("写文档和记笔记，按习惯二选一即可。", "For documents and notes \u2014 pick whichever you are used to."),
+        "media" => L.S("系统自带播放器解码有限，常看片或录屏再考虑。",
+            "The built-in player decodes a limited set of formats; worth adding if you watch or record a lot."),
+        "dev" => L.S("只写代码才需要，不开发可以整段跳过。", "Only needed if you write code \u2014 skip the whole section otherwise."),
+        "game" => L.S("平台本体装到 Applications，游戏库单独放数据盘的 Games。",
+            "Install the client under Applications and point its game library at Games on the data drive."),
+        "runtime" => L.S("老程序常缺的运行库，遇到报错再装也来得及。",
+            "Runtimes that older programs tend to miss. Installing them when something complains is soon enough."),
         _ => string.Empty,
     };
 
     public static string InstallerHint(SoftwareEntry e) => e.Installer switch
     {
-        "electron_user" => "安装器默认装到用户目录，通常不支持自定义路径",
-        "msix" => "通过微软商店安装，位置由系统管理",
-        _ => e.CustomPath ? "安装时选择“自定义安装”并粘贴推荐路径" : "该安装器不支持自定义路径",
+        "electron_user" => L.S("安装器默认装到用户目录，通常不支持自定义路径",
+            "This installer targets your user profile and usually offers no custom path"),
+        "msix" => L.S("通过微软商店安装，位置由系统管理", "Installed from the Store; Windows decides where it goes"),
+        _ => e.CustomPath
+            ? L.S("安装时选择“自定义安装”并粘贴推荐路径", "Choose a custom install during setup and paste the suggested path")
+            : L.S("该安装器不支持自定义路径", "This installer doesn't support a custom path"),
     };
 }
