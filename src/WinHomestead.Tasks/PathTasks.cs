@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using WinHomestead.Core.Abstractions;
 using WinHomestead.Core.Engine;
+using WinHomestead.Core.Infrastructure;
 using WinHomestead.Core.Models;
 
 namespace WinHomestead.Tasks;
@@ -14,8 +15,10 @@ public sealed class PathSkeletonTask : TaskBase
     public const string Id = "path.skeleton";
     public static readonly string[] Folders = { "Applications", "DevCache", "Data", "Temp", "Models", "VMs", "Games" };
 
-    public override TaskMetadata Metadata { get; } = new(Id, "path", "建立数据盘目录骨架",
-        "在数据盘创建 Applications / DevCache / Data / Temp / Models / VMs / Games，后续迁移任务都以此为目标。已存在的目录会被复用。",
+    public override TaskMetadata Metadata { get; } = new(Id, "path",
+        L.S("建立数据盘目录骨架", "Create the data drive skeleton"),
+        L.S("在数据盘创建 Applications / DevCache / Data / Temp / Models / VMs / Games，后续迁移任务都以此为目标。已存在的目录会被复用。",
+            "Creates Applications / DevCache / Data / Temp / Models / VMs / Games on the data drive; every later relocation targets these. Existing folders are reused, not replaced."),
         RiskFlags.Reversible, new[] { ShrinkAndCreateTask.Id }, 100);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a);
@@ -25,7 +28,7 @@ public sealed class PathSkeletonTask : TaskBase
         var root = DataRoot(ctx);
         var missing = Folders.Where(f => !ctx.FileSystem.DirectoryExists(Path.Combine(root, f))).ToList();
         return new DetectResult(missing.Count == 0,
-            missing.Count == 0 ? "全部存在" : "缺少: " + string.Join(", ", missing),
+            missing.Count == 0 ? L.S("全部存在", "all present") : L.S("缺少: ", "missing: ") + string.Join(", ", missing),
             root + "{" + string.Join(",", Folders) + "}");
     }
 
@@ -41,8 +44,10 @@ public sealed class UserTempTask : TaskBase
 {
     public const string Id = "path.temp.user";
 
-    public override TaskMetadata Metadata { get; } = new(Id, "path", "迁移用户临时目录 TEMP/TMP",
-        "把当前用户的 TEMP 与 TMP 指向数据盘的 Temp 目录。新启动的程序即生效，已打开的程序需重启。旧临时目录不会被删除。",
+    public override TaskMetadata Metadata { get; } = new(Id, "path",
+        L.S("迁移用户临时目录 TEMP/TMP", "Move the user TEMP/TMP folder"),
+        L.S("把当前用户的 TEMP 与 TMP 指向数据盘的 Temp 目录。新启动的程序即生效，已打开的程序需重启。旧临时目录不会被删除。",
+            "Points the current user's TEMP and TMP at the Temp folder on the data drive. Newly started programs pick it up immediately; already-running ones need a restart. The old temp folder is left in place."),
         RiskFlags.Reversible | RiskFlags.NeedsSignOut, new[] { PathSkeletonTask.Id }, 120);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a);
@@ -79,9 +84,12 @@ public sealed class KnownFolderTask : TaskBase
     {
         _folder = folder; _subdir = subdir;
         var desc = folder == KnownFolder.Desktop
-            ? "把桌面移到数据盘。若桌面正被 OneDrive 备份接管，需先在 OneDrive 设置中停止桌面备份，本工具不会改动 OneDrive。"
-            : $"把\"{displayName}\"的系统位置改到数据盘 Data\\{subdir}，并移动其中已有文件。目标已存在同名项时跳过不覆盖。";
-        Metadata = new TaskMetadata(IdFor(folder), "path", $"迁移{displayName}到数据盘", desc,
+            ? L.S("把桌面移到数据盘。若桌面正被 OneDrive 备份接管，需先在 OneDrive 设置中停止桌面备份，本工具不会改动 OneDrive。",
+                  "Moves the Desktop to the data drive. If OneDrive has taken over Desktop backup, turn that off in OneDrive settings first — this tool never changes OneDrive.")
+            : L.S($"把\"{displayName}\"的系统位置改到数据盘 Data\\{subdir}，并移动其中已有文件。目标已存在同名项时跳过不覆盖。",
+                  $"Repoints the known folder “{displayName}” to Data\\{subdir} on the data drive and moves what is already inside. Items whose name already exists at the target are skipped, never overwritten.");
+        Metadata = new TaskMetadata(IdFor(folder), "path",
+            L.S($"迁移{displayName}到数据盘", $"Move {displayName} to the data drive"), desc,
             RiskFlags.Reversible, new[] { PathSkeletonTask.Id }, order);
     }
 
@@ -97,9 +105,11 @@ public sealed class KnownFolderTask : TaskBase
     public override DetectResult Detect(TaskContext ctx)
     {
         var current = ctx.Shell.GetKnownFolderPath(_folder);
-        if (current == null) return DetectResult.NotApplicableBecause("无法读取当前位置");
+        if (current == null) return DetectResult.NotApplicableBecause(L.S("无法读取当前位置", "can't read the current location"));
         if (_folder == KnownFolder.Desktop && ctx.Snapshot.OneDrive.DesktopProtected)
-            return new DetectResult(false, current, Target(ctx), DetectResult.NotApplicable + ": 桌面由 OneDrive 备份接管，请先在 OneDrive 设置中停止桌面备份");
+            return new DetectResult(false, current, Target(ctx), DetectResult.NotApplicable + ": " + L.S(
+                "桌面由 OneDrive 备份接管，请先在 OneDrive 设置中停止桌面备份",
+                "the Desktop is covered by OneDrive backup; turn off Desktop backup in OneDrive settings first"));
         var satisfied = !ctx.Snapshot.IsOnSystemDrive(current);
         return new DetectResult(satisfied, current, satisfied ? current : Target(ctx));
     }
@@ -114,9 +124,11 @@ public sealed class KnownFolderTask : TaskBase
         {
             MoveResult r;
             try { r = ctx.Shell.MoveContents(current, target); }
-            catch (Exception ex) { throw new TaskFailedException("移动文件失败: " + ex.Message, ex); }
+            catch (Exception ex) { throw new TaskFailedException(L.S("移动文件失败: ", "failed to move files: ") + ex.Message, ex); }
             if (r.Skipped.Count > 0)
-                ctx.ManualSteps.Add($"{Metadata.DisplayName}：以下 {r.Skipped.Count} 项因目标已存在同名项未移动，仍在 {current}：{string.Join("; ", r.Skipped.Take(5))}{(r.Skipped.Count > 5 ? " …" : "")}");
+                ctx.ManualSteps.Add(L.S(
+                    $"{Metadata.DisplayName}：以下 {r.Skipped.Count} 项因目标已存在同名项未移动，仍在 {current}：{string.Join("; ", r.Skipped.Take(5))}{(r.Skipped.Count > 5 ? " …" : "")}",
+                    $"{Metadata.DisplayName}: {r.Skipped.Count} items were left in {current} because something with the same name already exists at the target: {string.Join("; ", r.Skipped.Take(5))}{(r.Skipped.Count > 5 ? " …" : "")}"));
         }
     }
 

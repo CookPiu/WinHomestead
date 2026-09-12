@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using WinHomestead.Core.Abstractions;
 using WinHomestead.Core.Engine;
+using WinHomestead.Core.Infrastructure;
 using WinHomestead.Core.Models;
 
 namespace WinHomestead.Tasks;
@@ -13,8 +14,10 @@ public sealed class MachineTempTask : TaskBase
 {
     public const string Id = "path.temp.machine";
 
-    public override TaskMetadata Metadata { get; } = new(Id, "path", "迁移系统临时目录（可选）",
-        "把系统级 TEMP 与 TMP 指向数据盘 Temp\\System。影响服务与安装程序的临时文件，重启后完全生效。默认不勾选，只建议在数据盘可靠且常驻时开启。",
+    public override TaskMetadata Metadata { get; } = new(Id, "path",
+        L.S("迁移系统临时目录（可选）", "Move the system temp folder (optional)"),
+        L.S("把系统级 TEMP 与 TMP 指向数据盘 Temp\\System。影响服务与安装程序的临时文件，重启后完全生效。默认不勾选，只建议在数据盘可靠且常驻时开启。",
+            "Points the machine-level TEMP and TMP at Temp\\System on the data drive. This affects temporary files written by services and installers and fully takes effect after a reboot. Not pre-selected — only worth doing when the data drive is reliable and always present."),
         RiskFlags.Reversible | RiskFlags.AdminOnly | RiskFlags.NeedsReboot, new[] { PathSkeletonTask.Id }, 121);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a) && !s.IsMdmEnrolled;
@@ -47,8 +50,10 @@ public sealed class QuickAccessPinTask : TaskBase
 {
     public const string Id = "path.quick_access";
 
-    public override TaskMetadata Metadata { get; } = new(Id, "path", "把 Applications 固定到快速访问",
-        "在资源管理器左侧“快速访问”中固定数据盘的 Applications 目录，安装软件选路径时直接可达。",
+    public override TaskMetadata Metadata { get; } = new(Id, "path",
+        L.S("把 Applications 固定到快速访问", "Pin Applications to Quick Access"),
+        L.S("在资源管理器左侧“快速访问”中固定数据盘的 Applications 目录，安装软件选路径时直接可达。",
+            "Pins the Applications folder on the data drive to Quick Access in File Explorer, so it is one click away when an installer asks where to go."),
         RiskFlags.Reversible, new[] { PathSkeletonTask.Id }, 105);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => HasDataDrive(s, a);
@@ -59,7 +64,7 @@ public sealed class QuickAccessPinTask : TaskBase
     {
         var target = Target(ctx);
         var pinned = ctx.FileSystem.DirectoryExists(target) && ctx.Shell.IsPinnedToQuickAccess(target);
-        return new DetectResult(pinned, pinned ? "已固定" : "未固定", target);
+        return new DetectResult(pinned, pinned ? L.S("已固定", "pinned") : L.S("未固定", "not pinned"), target);
     }
 
     public override void Apply(TaskContext ctx)
@@ -78,8 +83,10 @@ public sealed class TempCleanupTask : TaskBase
     public const string Id = "storage.temp_cleanup";
     public static readonly TimeSpan MaxAge = TimeSpan.FromDays(7);
 
-    public override TaskMetadata Metadata { get; } = new(Id, "storage", "清理用户临时目录中的旧文件",
-        "删除原用户临时目录（通常是 %LOCALAPPDATA%\\Temp）中 7 天前的文件；正在使用的文件自动跳过。此操作不可撤销。",
+    public override TaskMetadata Metadata { get; } = new(Id, "storage",
+        L.S("清理用户临时目录中的旧文件", "Clear old files from the user temp folder"),
+        L.S("删除原用户临时目录（通常是 %LOCALAPPDATA%\\Temp）中 7 天前的文件；正在使用的文件自动跳过。此操作不可撤销。",
+            "Deletes files older than 7 days from the original user temp folder (usually %LOCALAPPDATA%\\Temp). Files in use are skipped. This cannot be undone."),
         RiskFlags.None, Array.Empty<string>(), 500);
 
     /// <summary>探测时记录的用户 TEMP（迁移前的旧目录）；缺失时退回 %LOCALAPPDATA%\Temp。</summary>
@@ -102,12 +109,15 @@ public sealed class TempCleanupTask : TaskBase
         var dir = OldTempDir(ctx.Snapshot);
         var scan = ctx.FileSystem.FilesOlderThan(dir, DateTime.Now - MaxAge, DetectMaxFiles, DetectBudget);
         var count = scan.Files.Count;
-        if (count == 0) return new DetectResult(true, $"{dir} 无 7 天前的文件", "无需清理");
+        if (count == 0) return new DetectResult(true,
+            L.S($"{dir} 无 7 天前的文件", $"nothing older than 7 days in {dir}"), L.S("无需清理", "nothing to clear"));
         var mb = scan.SizeBytes / 1048576d;
-        var more = scan.Truncated ? "以上" : string.Empty;
+        var more = scan.Truncated ? L.S("以上", "+") : string.Empty;
         return new DetectResult(false,
-            $"{dir} 有 {count}{(scan.Truncated ? "+" : string.Empty)} 个旧文件，约 {mb:F0} MB{more}",
-            $"删除 7 天前的临时文件，释放约 {mb:F0} MB{more}");
+            L.S($"{dir} 有 {count}{(scan.Truncated ? "+" : string.Empty)} 个旧文件，约 {mb:F0} MB{more}",
+                $"{count}{(scan.Truncated ? "+" : string.Empty)} old files in {dir}, about {mb:F0} MB{more}"),
+            L.S($"删除 7 天前的临时文件，释放约 {mb:F0} MB{more}",
+                $"delete temp files older than 7 days, freeing about {mb:F0} MB{more}"));
     }
 
     public override void Apply(TaskContext ctx)
@@ -120,8 +130,10 @@ public sealed class TempCleanupTask : TaskBase
             if (!ctx.FileSystem.TryDeleteFile(f.Path)) failed++;
         }
         ctx.Log.Info($"[{Id}] 删除 {scan.Files.Count - failed}/{scan.Files.Count} 个旧临时文件");
-        if (failed > 0) ctx.ManualSteps.Add($"临时目录清理：{failed} 个文件正被占用未删除，重启后再运行一次即可。");
-        if (scan.Truncated) ctx.ManualSteps.Add("临时目录清理：文件太多，本次只清理了一部分，再执行一次可继续。");
+        if (failed > 0) ctx.ManualSteps.Add(L.S($"临时目录清理：{failed} 个文件正被占用未删除，重启后再运行一次即可。",
+            $"Temp cleanup: {failed} files were in use and left alone. Run this again after a reboot."));
+        if (scan.Truncated) ctx.ManualSteps.Add(L.S("临时目录清理：文件太多，本次只清理了一部分，再执行一次可继续。",
+            "Temp cleanup: there were too many files to handle in one pass. Run it again to continue."));
     }
 
     /// <summary>尽力而为：被占用的文件跳过不算失败。</summary>
@@ -133,8 +145,10 @@ public sealed class HibernateOffTask : TaskBase
 {
     public const string Id = "storage.hibernate_off";
 
-    public override TaskMetadata Metadata { get; } = new(Id, "storage", "关闭休眠（台式机）",
-        "执行 powercfg /hibernate off，删除系统盘上的 hiberfil.sys。台式机不用休眠，关闭后快速启动一并失效，开机走完整冷启动。可随时用 powercfg /hibernate on 恢复。",
+    public override TaskMetadata Metadata { get; } = new(Id, "storage",
+        L.S("关闭休眠（台式机）", "Turn off hibernation (desktops)"),
+        L.S("执行 powercfg /hibernate off，删除系统盘上的 hiberfil.sys。台式机不用休眠，关闭后快速启动一并失效，开机走完整冷启动。可随时用 powercfg /hibernate on 恢复。",
+            "Runs powercfg /hibernate off and removes hiberfil.sys from the system drive. Desktops rarely hibernate; turning it off also disables Fast Startup, so every boot is a full cold start. Reversible any time with powercfg /hibernate on."),
         RiskFlags.Reversible | RiskFlags.AdminOnly, Array.Empty<string>(), 501);
 
     public override bool IsApplicable(EnvironmentSnapshot s, Answers a) => !s.IsLaptop && !s.IsMdmEnrolled;
@@ -143,7 +157,8 @@ public sealed class HibernateOffTask : TaskBase
     public override DetectResult Detect(TaskContext ctx)
     {
         var enabled = ctx.Power.IsHibernateEnabled();
-        return new DetectResult(!enabled, enabled ? "休眠已启用" : "休眠已关闭", "休眠关闭");
+        return new DetectResult(!enabled, enabled ? L.S("休眠已启用", "hibernation on") : L.S("休眠已关闭", "hibernation off"),
+            L.S("休眠关闭", "hibernation off"));
     }
 
     public override void Apply(TaskContext ctx) => ctx.Power.SetHibernate(false);
