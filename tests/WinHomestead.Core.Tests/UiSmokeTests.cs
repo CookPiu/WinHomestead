@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,6 +7,7 @@ using System.Windows.Threading;
 using WinHomestead.App;
 using WinHomestead.App.ViewModels;
 using WinHomestead.App.Views;
+using WinHomestead.Core.Infrastructure;
 using Xunit;
 
 namespace WinHomestead.Core.Tests;
@@ -40,6 +42,7 @@ public class UiSmokeTests
                 Render(new SoftwareView { DataContext = new SoftwareViewModel(services, () => { }) });
                 Render(new CheckupView { DataContext = new CheckupViewModel(services, () => { }) });
                 Render(new StartupView { DataContext = new StartupViewModel(services, () => { }) });
+
 
                 // 每个子页都必须有 DataTemplate：MainViewModel 把 ViewModel 直接塞进 ContentControl，
                 // 漏了映射的页面会原样显示类名而不是界面，而上面的 Render 是直接 new 视图，测不出这个

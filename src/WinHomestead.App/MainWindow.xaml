@@ -1,7 +1,8 @@
-<ui:FluentWindow x:Class="WinHomestead.App.MainWindow"
+﻿<ui:FluentWindow x:Class="WinHomestead.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:local="clr-namespace:WinHomestead.App"
         xmlns:vm="clr-namespace:WinHomestead.App.ViewModels"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -27,7 +28,7 @@
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <ui:Button Content="← 返回列表" Appearance="Secondary" Command="{Binding HomeCommand}" HorizontalAlignment="Left">
+      <ui:Button Content="{local:Loc Zh='← 返回列表', En='← Back to list'}" Appearance="Secondary" Command="{Binding HomeCommand}" HorizontalAlignment="Left">
         <ui:Button.Style>
           <Style TargetType="ui:Button">
             <Setter Property="Visibility" Value="Visible" />
@@ -41,9 +42,9 @@
       </ui:Button>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
         <ui:Button Content="{Binding ReportLabel}" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowReportCommand}" />
-        <ui:Button Content="软件推荐" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowSoftwareCommand}" />
-        <ui:Button Content="启动项" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowStartupCommand}" />
-        <ui:Button Content="检查项" Appearance="Secondary" Command="{Binding ShowCheckupCommand}" />
+        <ui:Button Content="{local:Loc Zh='软件推荐', En='Software'}" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowSoftwareCommand}" />
+        <ui:Button Content="{local:Loc Zh='启动项', En='Startup'}" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowStartupCommand}" />
+        <ui:Button Content="{local:Loc Zh='检查项', En='Checks'}" Appearance="Secondary" Command="{Binding ShowCheckupCommand}" />
       </StackPanel>
     </Grid>
 

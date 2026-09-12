@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WinHomestead.Core.Infrastructure;
 using WinHomestead.Core.Models;
 
 namespace WinHomestead.App.ViewModels;
@@ -28,13 +29,13 @@ public sealed partial class TaskItemViewModel : ObservableObject
         IsIrreversible = (item.Risk & (RiskFlags.Reversible | RiskFlags.PromptOnly)) == 0;
         NeedsConfirm = IsIrreversible || (item.Risk & RiskFlags.AdminOnly) != 0;
         var risks = new List<string>();
-        if ((item.Risk & RiskFlags.Reversible) != 0) risks.Add("可撤销");
-        if ((item.Risk & RiskFlags.NeedsExplorerRestart) != 0) risks.Add("重启资源管理器生效");
-        if ((item.Risk & RiskFlags.NeedsSignOut) != 0) risks.Add("注销后生效");
-        if ((item.Risk & RiskFlags.NeedsReboot) != 0) risks.Add("需重启");
-        if ((item.Risk & RiskFlags.AdminOnly) != 0) risks.Add("系统级");
-        if ((item.Risk & RiskFlags.PromptOnly) != 0) risks.Add("只给步骤");
-        if (IsIrreversible) risks.Add("不可撤销");
+        if ((item.Risk & RiskFlags.Reversible) != 0) risks.Add(L.S("可撤销", "reversible"));
+        if ((item.Risk & RiskFlags.NeedsExplorerRestart) != 0) risks.Add(L.S("重启资源管理器生效", "needs Explorer restart"));
+        if ((item.Risk & RiskFlags.NeedsSignOut) != 0) risks.Add(L.S("注销后生效", "needs sign-out"));
+        if ((item.Risk & RiskFlags.NeedsReboot) != 0) risks.Add(L.S("需重启", "needs reboot"));
+        if ((item.Risk & RiskFlags.AdminOnly) != 0) risks.Add(L.S("系统级", "system-wide"));
+        if ((item.Risk & RiskFlags.PromptOnly) != 0) risks.Add(L.S("只给步骤", "instructions only"));
+        if (IsIrreversible) risks.Add(L.S("不可撤销", "irreversible"));
         RiskLabel = string.Join(" · ", risks);
         Update(item, result);
     }
@@ -61,6 +62,8 @@ public sealed partial class TaskItemViewModel : ObservableObject
     [ObservableProperty] private bool _isPlanned;
     [ObservableProperty] private bool _isSkipped;
     [ObservableProperty] private bool _isNotApplicable;
+    /// <summary>徽标要不要绿底。界面不能拿 StatusLabel 的文字去比，换了语言就对不上。</summary>
+    [ObservableProperty] private bool _showRecommendedBadge;
     /// <summary>不适用项的辅助动作，如桌面被 OneDrive 接管时的“打开 OneDrive 设置”。</summary>
     [ObservableProperty] private string _auxLabel = string.Empty;
     [ObservableProperty] private bool _hasAux;
@@ -70,7 +73,7 @@ public sealed partial class TaskItemViewModel : ObservableObject
     [ObservableProperty] private string _resultMessage = string.Empty;
     [ObservableProperty] private bool _hasResult;
     [ObservableProperty] private bool _resultOk;
-    [ObservableProperty] private string _buttonText = "执行";
+    [ObservableProperty] private string _buttonText = string.Empty;
 
     public void Update(PlanItem item, TaskResult? result)
     {
@@ -86,17 +89,19 @@ public sealed partial class TaskItemViewModel : ObservableObject
         ShowRisk = IsPlanned && RiskLabel.Length > 0;
         StatusLabel = item.State switch
         {
-            PlanState.Skipped => "已满足",
-            PlanState.NotApplicable => "不适用",
-            _ => Recommended ? "推荐" : "可选",
+            PlanState.Skipped => L.S("已满足", "done"),
+            PlanState.NotApplicable => L.S("不适用", "n/a"),
+            _ => Recommended ? L.S("推荐", "recommended") : L.S("可选", "optional"),
         };
+        // 徽标底色不能靠比较显示文本，那样一换语言绿底就没了
+        ShowRecommendedBadge = IsPlanned && Recommended;
         ReasonText = IsNotApplicable ? Reason(item.Reason) : string.Empty;
         HasReason = ReasonText.Length > 0;
         var aux = _owner.AuxActionFor(item);
         _aux = aux?.Action;
         AuxLabel = aux?.Label ?? string.Empty;
         HasAux = _aux != null;
-        ButtonText = IsPlanned && result != null && result.Outcome is TaskOutcome.Failed or TaskOutcome.RolledBack ? "重试" : "执行";
+        ButtonText = IsPlanned && result != null && result.Outcome is TaskOutcome.Failed or TaskOutcome.RolledBack ? L.S("重试", "Retry") : L.S("执行", "Run");
         SetResult(result);
         RefreshCanRun();
     }
@@ -107,7 +112,7 @@ public sealed partial class TaskItemViewModel : ObservableObject
         if (result == null) { ResultMessage = string.Empty; ResultOk = false; return; }
         ResultOk = result.Outcome is TaskOutcome.Done or TaskOutcome.NeedsReboot;
         var label = Core.Infrastructure.ReportHtml.OutcomeLabel(result.Outcome);
-        ResultMessage = string.IsNullOrEmpty(result.Message) ? label : $"{label}：{result.Message}";
+        ResultMessage = string.IsNullOrEmpty(result.Message) ? label : label + L.S("：", ": ") + result.Message;
         if (result.ManualSteps.Count > 0) ResultMessage += Environment.NewLine + string.Join(Environment.NewLine, result.ManualSteps);
     }
 
@@ -159,17 +164,17 @@ public sealed partial class CategoryViewModel : ObservableObject
         IsMachineInfo = key == MachineKey;
         Title = key switch
         {
-            MachineKey => "这台电脑",
-            "disk" => "分区",
-            "path" => "磁盘与路径",
-            "env" => "开发缓存",
-            "ui" => "界面与交互",
-            "display" => "显示",
-            "power" => "电源",
-            "ime" => "中文输入法",
-            "promo" => "去推送",
-            "gpu" => "显卡",
-            "storage" => "空间清理",
+            MachineKey => L.S("这台电脑", "This PC"),
+            "disk" => L.S("分区", "Partitions"),
+            "path" => L.S("磁盘与路径", "Disks and paths"),
+            "env" => L.S("开发缓存", "Dev caches"),
+            "ui" => L.S("界面与交互", "UI and interaction"),
+            "display" => L.S("显示", "Display"),
+            "power" => L.S("电源", "Power"),
+            "ime" => L.S("中文输入法", "Chinese IME"),
+            "promo" => L.S("去推送", "Promo removal"),
+            "gpu" => L.S("显卡", "Graphics"),
+            "storage" => L.S("空间清理", "Disk cleanup"),
             _ => key,
         };
     }
@@ -184,7 +189,7 @@ public sealed partial class CategoryViewModel : ObservableObject
     {
         if (IsMachineInfo) return;
         var runnable = Items.Count(i => i.IsPlanned);
-        Subtitle = runnable == 0 ? "全部已满足" : $"{runnable} 项可执行";
+        Subtitle = runnable == 0 ? L.S("全部已满足", "all done") : L.S($"{runnable} 项可执行", $"{runnable} to run");
     }
 }
 
@@ -212,7 +217,7 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty] private CategoryViewModel? _selectedCategory;
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _isExecuting;
-    [ObservableProperty] private string _status = "正在探测这台电脑…";
+    [ObservableProperty] private string _status = L.S("正在探测这台电脑…", "Probing this PC…");
     [ObservableProperty] private string _dataDrive = string.Empty;
     [ObservableProperty] private bool _hasDataDrive;
     [ObservableProperty] private bool _explorerRestartPending;
@@ -231,7 +236,7 @@ public sealed partial class HomeViewModel : ObservableObject
         var s = _services.Session.Snapshot;
         if (item.State == PlanState.NotApplicable && s != null && s.OneDrive.DesktopProtected
             && string.Equals(item.TaskId, "path.known_folder.desktop", StringComparison.OrdinalIgnoreCase))
-            return new AuxAction("打开 OneDrive 设置", OpenOneDriveSettings);
+            return new AuxAction(L.S("打开 OneDrive 设置", "Open OneDrive settings"), OpenOneDriveSettings);
         return null;
     }
 
@@ -241,7 +246,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private async Task DetectAsync()
     {
         if (IsBusy) return;
-        IsBusy = true; Status = "正在探测这台电脑…";
+        IsBusy = true; Status = L.S("正在探测这台电脑…", "Probing this PC…");
         RefreshAllCanRun();
         try
         {
@@ -257,7 +262,7 @@ public sealed partial class HomeViewModel : ObservableObject
         catch (Exception ex)
         {
             _services.Logger.Error("探测失败", ex);
-            Status = "探测失败：" + ex.Message;
+            Status = L.S("探测失败：", "Probe failed: ") + ex.Message;
         }
         finally { IsBusy = false; RefreshAllCanRun(); }
     }
@@ -267,9 +272,10 @@ public sealed partial class HomeViewModel : ObservableObject
         BuildMachineInfo(s);
 
         var options = s.Volumes.Where(v => !v.IsSystem)
-            .Select(v => new OptionItem($"{v.DriveLetter} {v.Label}（{v.SizeGb:F2} GB，剩 {v.FreeGb:F2} GB）", v.DriveLetter)).ToList();
+            .Select(v => new OptionItem(L.S($"{v.DriveLetter} {v.Label}（{v.SizeGb:F2} GB，剩 {v.FreeGb:F2} GB）",
+                                         $"{v.DriveLetter} {v.Label} ({v.SizeGb:F2} GB, {v.FreeGb:F2} GB free)"), v.DriveLetter)).ToList();
         HasDataDrive = options.Count > 0;
-        if (options.Count == 0) options.Add(new OptionItem("无数据盘", string.Empty));
+        if (options.Count == 0) options.Add(new OptionItem(L.S("无数据盘", "No data drive"), string.Empty));
         DataDriveOptions = options;
         OnPropertyChanged(nameof(DataDriveOptions));
 
@@ -282,11 +288,14 @@ public sealed partial class HomeViewModel : ObservableObject
         _suppressDriveChange = false;
 
         Warnings.Clear();
-        if (!s.IsWindows11) AddWarning("当前不是 Windows 11，部分设置项可能不适用。");
-        if (s.IsMdmEnrolled || s.IsDomainJoined) AddWarning("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。");
-        if (s.DataDrive == null) AddWarning("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。");
+        if (!s.IsWindows11) AddWarning(L.S("当前不是 Windows 11，部分设置项可能不适用。", "This is not Windows 11; some items may not apply."));
+        if (s.IsMdmEnrolled || s.IsDomainJoined) AddWarning(L.S("检测到此电脑受组织管理（MDM/域），系统级改动不会列出或只给步骤。",
+            "This PC is managed by an organization (MDM/domain); system-wide items are hidden or reduced to instructions."));
+        if (s.DataDrive == null) AddWarning(L.S("未检测到数据盘：路径与缓存迁移不会出现；单盘可先看“分区”分类。",
+            "No data drive detected: path and cache items are hidden. On a single disk, start with the Partitions category."));
         var sys = s.Volumes.FirstOrDefault(v => v.IsSystem);
-        if (sys != null && sys.FreeGb < 40) AddWarning($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行“磁盘与路径”里的迁移项。");
+        if (sys != null && sys.FreeGb < 40) AddWarning(L.S($"系统盘剩余仅 {sys.FreeGb:F2} GB，建议优先执行“磁盘与路径”里的迁移项。",
+            $"Only {sys.FreeGb:F2} GB left on the system drive; start with the relocation items under Disks and paths."));
 
         await RebuildPlanAsync(s, answers);
     }
@@ -301,41 +310,57 @@ public sealed partial class HomeViewModel : ObservableObject
     private void BuildMachineInfo(EnvironmentSnapshot s)
     {
         MachineInfo.Clear();
-        MachineInfo.Add(new MachineRow("系统", $"{s.OsCaption}（内部版本 {s.Build}）", $"安装于 {s.InstallDate:yyyy-MM-dd HH:mm}"));
-        MachineInfo.Add(new MachineRow("机型", $"{s.Manufacturer} {s.Model}".Trim(), s.IsLaptop ? "笔记本" : "台式机"));
+        MachineInfo.Add(new MachineRow(L.S("系统", "System"),
+            L.S($"{s.OsCaption}（内部版本 {s.Build}）", $"{s.OsCaption} (build {s.Build})"),
+            L.S($"安装于 {s.InstallDate:yyyy-MM-dd HH:mm}", $"installed {s.InstallDate:yyyy-MM-dd HH:mm}")));
+        MachineInfo.Add(new MachineRow(L.S("机型", "Model"), $"{s.Manufacturer} {s.Model}".Trim(),
+            s.IsLaptop ? L.S("笔记本", "laptop") : L.S("台式机", "desktop")));
         if (s.Cpu.Name.Length > 0 || s.Cpu.Cores > 0)
-            MachineInfo.Add(new MachineRow("处理器", s.Cpu.Name.Length > 0 ? s.Cpu.Name : "未知",
-                s.Cpu.Cores > 0 ? $"{s.Cpu.Cores} 核 {s.Cpu.LogicalProcessors} 线程" : string.Empty));
-        MachineInfo.Add(new MachineRow("内存", Gb(s.RamBytes), Bytes(s.RamBytes)));
+            MachineInfo.Add(new MachineRow(L.S("处理器", "Processor"), s.Cpu.Name.Length > 0 ? s.Cpu.Name : L.S("未知", "unknown"),
+                s.Cpu.Cores > 0 ? L.S($"{s.Cpu.Cores} 核 {s.Cpu.LogicalProcessors} 线程",
+                                      $"{s.Cpu.Cores} cores, {s.Cpu.LogicalProcessors} threads") : string.Empty));
+        MachineInfo.Add(new MachineRow(L.S("内存", "Memory"), Gb(s.RamBytes), Bytes(s.RamBytes)));
 
         foreach (var d in s.Disks)
-            MachineInfo.Add(new MachineRow($"磁盘 {d.Number}", $"{d.Model}（{d.InterfaceType}） {Gb(d.SizeBytes)}", Bytes(d.SizeBytes)));
+            MachineInfo.Add(new MachineRow(L.S($"磁盘 {d.Number}", $"Disk {d.Number}"),
+                L.S($"{d.Model}（{d.InterfaceType}） {Gb(d.SizeBytes)}", $"{d.Model} ({d.InterfaceType}) {Gb(d.SizeBytes)}"),
+                Bytes(d.SizeBytes)));
 
         foreach (var v in s.Volumes)
         {
-            var tag = v.IsSystem ? "系统盘" : string.Equals(v.DriveLetter, s.DataDrive, StringComparison.OrdinalIgnoreCase) ? "数据盘" : "数据卷";
+            var tag = v.IsSystem ? L.S("系统盘", "system drive")
+                : string.Equals(v.DriveLetter, s.DataDrive, StringComparison.OrdinalIgnoreCase) ? L.S("数据盘", "data drive")
+                : L.S("数据卷", "volume");
             var label = string.IsNullOrWhiteSpace(v.Label) ? string.Empty : $"{v.Label} · ";
             MachineInfo.Add(new MachineRow($"{v.DriveLetter} {tag}",
-                $"{label}总 {Gb(v.SizeBytes)} · 已用 {Gb(v.UsedBytes)} · 剩余 {Gb(v.FreeBytes)}",
-                $"总 {Bytes(v.SizeBytes)}，剩余 {Bytes(v.FreeBytes)}"));
+                L.S($"{label}总 {Gb(v.SizeBytes)} · 已用 {Gb(v.UsedBytes)} · 剩余 {Gb(v.FreeBytes)}",
+                    $"{label}{Gb(v.SizeBytes)} total · {Gb(v.UsedBytes)} used · {Gb(v.FreeBytes)} free"),
+                L.S($"总 {Bytes(v.SizeBytes)}，剩余 {Bytes(v.FreeBytes)}",
+                    $"{Bytes(v.SizeBytes)} total, {Bytes(v.FreeBytes)} free")));
         }
 
         var managed = new List<string>();
-        if (s.IsMdmEnrolled) managed.Add("已注册 MDM");
-        if (s.IsDomainJoined) managed.Add("已加入域");
-        if (s.ProxyEnabled) managed.Add("系统代理已开启");
-        MachineInfo.Add(new MachineRow("管理与网络", managed.Count == 0 ? "未受管理，未开系统代理" : string.Join("；", managed),
-            s.IsMdmEnrolled || s.IsDomainJoined ? "系统级改动会被跳过或只给步骤" : string.Empty));
+        if (s.IsMdmEnrolled) managed.Add(L.S("已注册 MDM", "MDM enrolled"));
+        if (s.IsDomainJoined) managed.Add(L.S("已加入域", "domain joined"));
+        if (s.ProxyEnabled) managed.Add(L.S("系统代理已开启", "system proxy on"));
+        MachineInfo.Add(new MachineRow(L.S("管理与网络", "Management and network"),
+            managed.Count == 0 ? L.S("未受管理，未开系统代理", "not managed, no system proxy") : string.Join(L.S("；", "; "), managed),
+            s.IsMdmEnrolled || s.IsDomainJoined
+                ? L.S("系统级改动会被跳过或只给步骤", "system-wide changes are skipped or reduced to instructions") : string.Empty));
 
-        var od = !s.OneDrive.Installed ? "未安装" : s.OneDrive.SignedIn ? "已登录" : "已安装未登录";
-        MachineInfo.Add(new MachineRow("OneDrive", od, s.OneDrive.DesktopProtected ? "桌面已被备份接管" : string.Empty));
-        MachineInfo.Add(new MachineRow("已识别的开发工具", s.Tools.Count(x => x.Installed) + " 个",
-            string.Join("、", s.Tools.Where(x => x.Installed).Select(x => x.Name))));
-        MachineInfo.Add(new MachineRow("探测时间", s.TakenAt.ToString("yyyy-MM-dd HH:mm:ss"), string.Empty));
+        var od = !s.OneDrive.Installed ? L.S("未安装", "not installed")
+            : s.OneDrive.SignedIn ? L.S("已登录", "signed in") : L.S("已安装未登录", "installed, not signed in");
+        MachineInfo.Add(new MachineRow("OneDrive", od,
+            s.OneDrive.DesktopProtected ? L.S("桌面已被备份接管", "Desktop is backed up by OneDrive") : string.Empty));
+        var toolCount = s.Tools.Count(x => x.Installed);
+        MachineInfo.Add(new MachineRow(L.S("已识别的开发工具", "Detected dev tools"),
+            L.S(toolCount + " 个", toolCount.ToString(CultureInfo.InvariantCulture)),
+            L.Join(s.Tools.Where(x => x.Installed).Select(x => x.Name).ToArray())));
+        MachineInfo.Add(new MachineRow(L.S("探测时间", "Probed at"), s.TakenAt.ToString("yyyy-MM-dd HH:mm:ss"), string.Empty));
     }
 
     private static string Gb(long bytes) => (bytes / 1073741824d).ToString("F2", CultureInfo.InvariantCulture) + " GB";
-    private static string Bytes(long bytes) => bytes.ToString("N0", CultureInfo.InvariantCulture) + " 字节";
+    private static string Bytes(long bytes) => bytes.ToString("N0", CultureInfo.InvariantCulture) + L.S(" 字节", " bytes");
 
     /// <summary>
     /// 重新 Detect 全部条目并就地刷新列表，保留已有执行结果。
@@ -344,7 +369,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private async Task RebuildPlanAsync(EnvironmentSnapshot s, Answers answers)
     {
         IsBusy = true;
-        Status = "正在检查各项当前状态…";
+        Status = L.S("正在检查各项当前状态…", "Checking the current state of each item…");
         RefreshAllCanRun();
         try
         {
@@ -357,12 +382,12 @@ public sealed partial class HomeViewModel : ObservableObject
             _services.Session.Plan = plan;
             ApplyPlan(plan);
             // 探测做完后“探测完成”四个字没有信息量，改成时间，和旁边的“重新探测”对得上
-            Status = "探测于 " + s.TakenAt.ToString("HH:mm:ss");
+            Status = L.S("探测于 ", "Probed at ") + s.TakenAt.ToString("HH:mm:ss");
         }
         catch (Exception ex)
         {
             _services.Logger.Error("生成列表失败", ex);
-            Status = "生成列表失败：" + ex.Message;
+            Status = L.S("生成列表失败：", "Failed to build the list: ") + ex.Message;
         }
         finally { IsBusy = false; RefreshAllCanRun(); }
     }
@@ -373,7 +398,7 @@ public sealed partial class HomeViewModel : ObservableObject
         var selectedKey = SelectedCategory?.Key;
         var order = plan.Items.Select(i => i.Module).Distinct().ToList();
         if (Categories.Count == 0 || !Categories[0].IsMachineInfo)
-            Categories.Insert(0, new CategoryViewModel(CategoryViewModel.MachineKey) { Subtitle = "硬件与系统信息" });
+            Categories.Insert(0, new CategoryViewModel(CategoryViewModel.MachineKey) { Subtitle = L.S("硬件与系统信息", "Hardware and system info") });
         var existing = Categories.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
 
         // 分类集合尽量就地更新，避免列表闪动
@@ -409,7 +434,8 @@ public sealed partial class HomeViewModel : ObservableObject
                            ?? Categories.FirstOrDefault(c => c.IsTaskList && c.Items.Any(i => i.IsPlanned))
                            ?? Categories.FirstOrDefault();
         var runnable = plan.Items.Count(i => i.State == PlanState.Planned);
-        Summary = $"共 {plan.Items.Count} 项 · 可执行 {runnable} 项 · 已满足 {plan.SkippedCount} 项";
+        Summary = L.S($"共 {plan.Items.Count} 项 · 可执行 {runnable} 项 · 已满足 {plan.SkippedCount} 项",
+            $"{plan.Items.Count} items · {runnable} to run · {plan.SkippedCount} done");
         RefreshAllCanRun();
         Refreshed?.Invoke();
     }
@@ -435,14 +461,16 @@ public sealed partial class HomeViewModel : ObservableObject
         if (item.NeedsConfirm)
         {
             var text = item.IsIrreversible
-                ? $"“{item.DisplayName}”不可撤销。\n\n{item.TargetValue}\n\n确定执行？"
-                : $"“{item.DisplayName}”会改动系统级设置。\n\n{item.TargetValue}\n\n确定执行？";
-            if (MessageBox.Show(text, "开荒", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
+                ? L.S($"“{item.DisplayName}”不可撤销。\n\n{item.TargetValue}\n\n确定执行？",
+                      $"“{item.DisplayName}” cannot be undone.\n\n{item.TargetValue}\n\nRun it?")
+                : L.S($"“{item.DisplayName}”会改动系统级设置。\n\n{item.TargetValue}\n\n确定执行？",
+                      $"“{item.DisplayName}” changes a system-wide setting.\n\n{item.TargetValue}\n\nRun it?");
+            if (MessageBox.Show(text, L.S("开荒", "WinHomestead"), MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK) return;
         }
 
         IsExecuting = true;
         item.IsRunning = true;
-        RunningLabel = "正在执行：" + item.DisplayName;
+        RunningLabel = L.S("正在执行：", "Running: ") +item.DisplayName;
         _cancel = new CancellationTokenSource();
         // 取消只在任务边界生效：单项执行常常只有一个任务，带上依赖时才真正有得停
         CanStop = true;
@@ -450,7 +478,7 @@ public sealed partial class HomeViewModel : ObservableObject
         var status = new Progress<string>(s => { if (s.Length > 0) RunningLabel = s; });
         var progress = new Progress<RunnerProgress>(p =>
         {
-            if (p.LastResult == null) RunningLabel = "正在执行：" + p.CurrentDisplayName;
+            if (p.LastResult == null) RunningLabel = L.S("正在执行：", "Running: ") +p.CurrentDisplayName;
             else if (_byId.TryGetValue(p.LastResult.TaskId, out var vm)) vm.SetResult(p.LastResult);
         });
         try
@@ -475,7 +503,7 @@ public sealed partial class HomeViewModel : ObservableObject
             _cancel = null;
             ExplorerRestartPending = _services.Runner.ExplorerRestartPending;
             RebootPending = _services.Runner.RebootPending;
-            RunningLabel = "正在刷新状态…";
+            RunningLabel = L.S("正在刷新状态…", "Refreshing…");
             try
             {
                 var s = _services.Session.Snapshot;
@@ -507,7 +535,7 @@ public sealed partial class HomeViewModel : ObservableObject
         if (_cancel == null || _cancel.IsCancellationRequested) return;
         _cancel.Cancel();
         CanStop = false;
-        RunningLabel = "已请求停止，等当前这项做完…";
+        RunningLabel = L.S("已请求停止，等当前这项做完…", "Stopping after the current item finishes…");
     }
 
     /// <summary>OneDrive 只提供 odopen 协议，协议不可用时退回直接启动 OneDrive.exe /settings。</summary>
@@ -530,8 +558,10 @@ public sealed partial class HomeViewModel : ObservableObject
             }
             catch (Exception ex) { _services.Logger.Warn("启动 OneDrive 设置失败: " + ex.Message); }
         }
-        MessageBox.Show("没能自动打开 OneDrive 设置。请在任务栏右下角右键 OneDrive 图标 → 设置 → 同步和备份 → 管理备份，关掉桌面备份后回来点“重新探测”。",
-            "开荒", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(L.S(
+                "没能自动打开 OneDrive 设置。请在任务栏右下角右键 OneDrive 图标 → 设置 → 同步和备份 → 管理备份，关掉桌面备份后回来点“重新探测”。",
+                "Couldn't open OneDrive settings. Right-click the OneDrive icon in the notification area → Settings → Sync and backup → Manage backup, turn off Desktop backup, then come back and hit Re-probe."),
+            L.S("开荒", "WinHomestead"), MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     [RelayCommand]
