@@ -4,7 +4,7 @@
 
 **Windows 11 新机开荒工具 —— 从开箱到顺手，该改的设置逐项配到位**
 
-*A setup tool for fresh Windows 11 machines: every tweak listed, explained, and reversible.*
+**简体中文** · [English](README_EN.md)
 
 [![release](https://img.shields.io/github/v/release/CookPiu/WinHomestead?style=flat-square)](https://github.com/CookPiu/WinHomestead/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/CookPiu/WinHomestead/total?style=flat-square)](https://github.com/CookPiu/WinHomestead/releases)
