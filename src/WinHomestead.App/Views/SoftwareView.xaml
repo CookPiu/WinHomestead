@@ -1,7 +1,8 @@
-<UserControl x:Class="WinHomestead.App.Views.SoftwareView"
+﻿<UserControl x:Class="WinHomestead.App.Views.SoftwareView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:local="clr-namespace:WinHomestead.App">
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -11,24 +12,24 @@
     </Grid.RowDefinitions>
 
     <StackPanel>
-      <TextBlock Style="{StaticResource PageTitle}" Text="软件推荐" />
+      <TextBlock Style="{StaticResource PageTitle}" Text="{local:Loc Zh='软件推荐', En='Software'}" />
       <TextBlock Style="{StaticResource PageSubtitle}"
-                 Text="下面是新机上比较常见的选择，按你自己的需要挑，不用照单全装。工具只给官网入口和一个建议的安装路径，不下载、不代装、不改你的默认程序。" />
+                 Text="{local:Loc Zh='下面是新机上比较常见的选择，按你自己的需要挑，不用照单全装。工具只给官网入口和一个建议的安装路径，不下载、不代装、不改你的默认程序。', En='Common picks for a new machine. Take what you need — this is not a checklist. The tool only gives you the official download page and a suggested install path; it never downloads, installs, or touches your default apps.'}" />
     </StackPanel>
 
     <!-- 先把安装目录规划好，再谈装什么 -->
     <ui:Card Grid.Row="1" Padding="14,10" Margin="0,10,0,10">
       <StackPanel>
-        <TextBlock Text="安装目录" Style="{StaticResource BodyStrongTextBlockStyle}" />
+        <TextBlock Text="{local:Loc Zh='安装目录', En='Install location'}" Style="{StaticResource BodyStrongTextBlockStyle}" />
         <Grid Margin="0,6,0,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBlock Text="根目录" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <ui:TextBox Grid.Column="1" Text="{Binding Root, UpdateSourceTrigger=LostFocus}" PlaceholderText="例如 D:\Applications" />
-          <ui:Button Grid.Column="2" Content="恢复默认" Appearance="Secondary" Margin="8,0,0,0" Command="{Binding ResetPathsCommand}" />
+          <TextBlock Text="{local:Loc Zh='根目录', En='Root'}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ui:TextBox Grid.Column="1" Text="{Binding Root, UpdateSourceTrigger=LostFocus}" PlaceholderText="{local:Loc Zh='例如 D:\Applications', En='e.g. D:\Applications'}" />
+          <ui:Button Grid.Column="2" Content="{local:Loc Zh='恢复默认', En='Reset'}" Appearance="Secondary" Margin="8,0,0,0" Command="{Binding ResetPathsCommand}" />
         </Grid>
         <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap" />
       </StackPanel>
@@ -55,11 +56,11 @@
                             <TextBlock Text="{Binding Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
                             <Border CornerRadius="8" Padding="6,1" Margin="8,0,0,0" Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
                                     Visibility="{Binding Installed, Converter={StaticResource BooleanToVisibilityConverter}}">
-                              <TextBlock Text="已安装" FontSize="11" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+                              <TextBlock Text="{local:Loc Zh='已安装', En='installed'}" FontSize="11" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
                             </Border>
                             <Border CornerRadius="8" Padding="6,1" Margin="6,0,0,0" Background="{DynamicResource ControlFillColorSecondaryBrush}"
                                     Visibility="{Binding IsCustomPath, Converter={StaticResource BooleanToVisibilityConverter}}">
-                              <TextBlock Text="自定义路径" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                              <TextBlock Text="{local:Loc Zh='自定义路径', En='custom path'}" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             </Border>
                           </StackPanel>
                           <TextBlock Text="{Binding Hint}" Style="{StaticResource Muted}" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -67,9 +68,9 @@
                                       Visibility="{Binding CanHavePath, Converter={StaticResource BooleanToVisibilityConverter}}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                          <ui:Button Content="复制路径" Appearance="Secondary" Command="{Binding CopyPathCommand}" Margin="0,0,6,0"
+                          <ui:Button Content="{local:Loc Zh='复制路径', En='Copy path'}" Appearance="Secondary" Command="{Binding CopyPathCommand}" Margin="0,0,6,0"
                                      Visibility="{Binding CanHavePath, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                          <ui:Button Content="官网" Appearance="Secondary" Command="{Binding OpenSiteCommand}" />
+                          <ui:Button Content="{local:Loc Zh='官网', En='Website'}" Appearance="Secondary" Command="{Binding OpenSiteCommand}" />
                         </StackPanel>
                       </Grid>
                     </ui:Card>
@@ -83,11 +84,11 @@
     </ScrollViewer>
 
     <Grid Grid.Row="3" Margin="0,12,0,0">
-      <CheckBox Content="隐藏已安装的" IsChecked="{Binding HideInstalled}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+      <CheckBox Content="{local:Loc Zh='隐藏已安装的', En='Hide installed'}" IsChecked="{Binding HideInstalled}" HorizontalAlignment="Left" VerticalAlignment="Center" />
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-        <ui:Button Content="商店应用保存位置" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding OpenSaveLocationsCommand}"
-                   ToolTip="微软商店安装的新应用默认装在 C 盘，且无公开接口可改。点此打开 设置 → 存储 → 高级存储设置 → 新内容的保存位置。" />
-        <ui:Button Content="刷新已安装状态" Appearance="Secondary" Command="{Binding RefreshCommand}" />
+        <ui:Button Content="{local:Loc Zh='商店应用保存位置', En='Store app location'}" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding OpenSaveLocationsCommand}"
+                   ToolTip="{local:Loc Zh='微软商店安装的新应用默认装在 C 盘，且无公开接口可改。点此打开 设置 → 存储 → 高级存储设置 → 新内容的保存位置。', En='Apps from the Store install to C: by default and there is no public API to change that. This opens Settings → Storage → Advanced storage settings → Where new content is saved.'}" />
+        <ui:Button Content="{local:Loc Zh='刷新已安装状态', En='Refresh installed state'}" Appearance="Secondary" Command="{Binding RefreshCommand}" />
       </StackPanel>
     </Grid>
   </Grid>

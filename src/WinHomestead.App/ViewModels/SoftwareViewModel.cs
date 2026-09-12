@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WinHomestead.Core.Infrastructure;
 
 namespace WinHomestead.App.ViewModels;
 
@@ -26,9 +27,9 @@ public sealed partial class SoftwareItemViewModel : ObservableObject
     {
         Entry = e;
         _pathChanged = pathChanged;
-        Name = e.Name;
+        Name = e.DisplayName;
         Url = e.Url;
-        Hint = SoftwareCatalog.InstallerHint(e) + (e.Note != null ? "。" + e.Note : string.Empty);
+        Hint = SoftwareCatalog.InstallerHint(e) + (e.DisplayNote != null ? L.S("。", ". ") + e.DisplayNote : string.Empty);
         CanHavePath = e.CustomPath && e.InstallDir.Length > 0;
     }
 
@@ -171,7 +172,8 @@ public sealed partial class SoftwareViewModel : ObservableObject
             }
             item.SetPath(Path.Combine(root, SoftwareCatalog.CategoryDir(item.Entry.Category), item.Entry.InstallDir), false);
         }
-        Hint = $"分类各占一个子目录，例如 {Path.Combine(root, "Dev", "VSCode")}。路径只是建议，想改就改。";
+        Hint = L.S($"分类各占一个子目录，例如 {Path.Combine(root, "Dev", "VSCode")}。路径只是建议，想改就改。",
+            $"Each category gets its own subfolder, e.g. {Path.Combine(root, "Dev", "VSCode")}. These paths are only suggestions \u2014 edit them freely.");
     }
 
     private void OnItemPathChanged(SoftwareItemViewModel item)

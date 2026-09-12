@@ -1,14 +1,18 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Threading;
 using WinHomestead.App.ViewModels;
 using WinHomestead.Core.Engine;
 using WinHomestead.Native;
+using WinHomestead.Core.Infrastructure;
 
 namespace WinHomestead.App;
 
 public partial class App : Application
 {
+    /// <summary>对话框标题。中文下沿用显示名"开荒"，英文下用项目名。</summary>
+    private static string AppTitle => L.S("开荒", "WinHomestead");
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -17,7 +21,7 @@ public partial class App : Application
         try { services = AppServices.Create(); }
         catch (Exception ex)
         {
-            MessageBox.Show("初始化失败：" + ex.Message, "开荒", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(L.S("初始化失败：", "Startup failed: ") + ex.Message, AppTitle, MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
             return;
         }
@@ -27,13 +31,17 @@ public partial class App : Application
 
         if (!ProcessInfo.IsAdministrator())
         {
-            MessageBox.Show("本工具需要以管理员身份运行。请使用管理员账户，或右键选择“以管理员身份运行”。", "开荒", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(L.S("本工具需要以管理员身份运行。请使用管理员账户，或右键选择“以管理员身份运行”。",
+                "This tool has to run as administrator. Use an administrator account, or right-click it and choose Run as administrator."),
+                AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
             Shutdown(2);
             return;
         }
         if (!ProcessInfo.ExplorerOwnedByCurrentUser())
         {
-            MessageBox.Show("检测到提权账户与当前登录账户不一致。请直接用登录的管理员账户运行，否则用户级设置会写到错误的账户。", "开荒", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(L.S("检测到提权账户与当前登录账户不一致。请直接用登录的管理员账户运行，否则用户级设置会写到错误的账户。",
+                "The elevated account differs from the one you are signed in with. Run this from the signed-in administrator account, otherwise per-user settings land in the wrong profile."),
+                AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
             Shutdown(3);
             return;
         }
@@ -58,8 +66,10 @@ public partial class App : Application
 
         if (last.Unfinished)
         {
-            MessageBox.Show($"上次运行在执行某一项时意外退出（会话 {last.Plan.Id}）。改动记录在 {services.Store.BaseDir}，请在列表中查看该项的当前状态后再决定是否重新执行。",
-                "开荒", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(L.S(
+                    $"上次运行在执行某一项时意外退出（会话 {last.Plan.Id}）。改动记录在 {services.Store.BaseDir}，请在列表中查看该项的当前状态后再决定是否重新执行。",
+                    $"The previous run exited unexpectedly while an item was executing (session {last.Plan.Id}). What it changed is recorded in {services.Store.BaseDir}; check that item's current state in the list before deciding whether to run it again."),
+                AppTitle, MessageBoxButton.OK, MessageBoxImage.Warning);
             services.Coordinator.ClearPending(last.Plan.Id);
         }
         if (resumeFlag && last.Result != null)
@@ -73,7 +83,8 @@ public partial class App : Application
     private static void OnUnhandled(AppServices services, DispatcherUnhandledExceptionEventArgs args)
     {
         services.Logger.Error("未处理异常", args.Exception);
-        MessageBox.Show("发生了未处理的错误，已记录到日志：\n" + services.Store.LogDir + "\n\n" + args.Exception.Message, "开荒", MessageBoxButton.OK, MessageBoxImage.Error);
+        MessageBox.Show(L.S("发生了未处理的错误，已记录到日志：\n", "An unhandled error occurred; it has been written to the log:\n")
+            + services.Store.LogDir + "\n\n" + args.Exception.Message, AppTitle, MessageBoxButton.OK, MessageBoxImage.Error);
         args.Handled = true;
     }
 }

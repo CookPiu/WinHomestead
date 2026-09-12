@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using WinHomestead.Core.Abstractions;
 using WinHomestead.Core.Models;
+using WinHomestead.Core.Infrastructure;
 
 namespace WinHomestead.Core.Engine;
 
@@ -53,13 +54,13 @@ public sealed class TaskRunner
                 }
                 else
                 {
-                    result = RollbackAfter(task, ctx, journal, "校验未通过", sw);
+                    result = RollbackAfter(task, ctx, journal, L.S("校验未通过", "verification failed"), sw);
                 }
             }
             catch (OperationCanceledException)
             {
                 aborted = true;
-                result = RollbackAfter(task, ctx, journal, "用户中止", sw, TaskOutcome.Aborted);
+                result = RollbackAfter(task, ctx, journal, L.S("用户中止", "stopped by user"), sw, TaskOutcome.Aborted);
             }
             catch (Exception ex)
             {
@@ -95,7 +96,9 @@ public sealed class TaskRunner
         catch (Exception rex)
         {
             _services.Logger.Error($"[{m.Id}] 回滚失败", rex);
-            return new TaskResult(m.Id, m.DisplayName, TaskOutcome.Failed, $"{reason}；回滚失败: {rex.Message}", sw.Elapsed.TotalMilliseconds, ctx.ManualSteps.ToList());
+            return new TaskResult(m.Id, m.DisplayName, TaskOutcome.Failed,
+                L.S($"{reason}；回滚失败: {rex.Message}", $"{reason}; rollback failed: {rex.Message}"),
+                sw.Elapsed.TotalMilliseconds, ctx.ManualSteps.ToList());
         }
     }
 

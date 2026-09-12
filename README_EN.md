@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # WinHomestead
 
@@ -23,7 +23,7 @@ No questionnaire, no "optimize everything" button, no black box. Every item stat
 > [!IMPORTANT]
 > Early release (0.2.x). The published binary is **not code-signed**, so SmartScreen will warn on first run. The tool modifies system settings — every item is reversible and a restore point is created before the first change, but try it on a VM or a machine you don't care about first.
 
-> **A note on language:** the interface is currently Chinese-only. Several features target Chinese users specifically (Microsoft Pinyin IME switches). English UI is [planned](#roadmap); the rest of the tool works the same regardless of your system language.
+> **A note on language:** the interface follows your system language — English unless Windows is set to Chinese. A few items target Chinese users specifically (the Microsoft Pinyin IME switches); they simply won't apply to you otherwise.
 
 ## Download
 
@@ -184,7 +184,6 @@ Every task implements four stages: `Detect` (works out the current state without
 
 ## Roadmap
 
-- English UI (the interface is Chinese-only today)
 - Code signing, so SmartScreen stops warning
 - A screenshot in this README
 

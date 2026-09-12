@@ -20,6 +20,12 @@ public sealed class SoftwareEntry
     [JsonPropertyName("detect")] public string Detect { get; set; } = string.Empty;
     [JsonPropertyName("usages")] public List<string> Usages { get; set; } = new();
     [JsonPropertyName("note")] public string? Note { get; set; }
+    [JsonPropertyName("name_en")] public string? NameEn { get; set; }
+    [JsonPropertyName("note_en")] public string? NoteEn { get; set; }
+
+    /// <summary>界面上显示的名字。没给英文名的（Steam、VLC 这类）两种语言下都用原名。</summary>
+    public string DisplayName => L.Chinese || NameEn == null ? Name : NameEn;
+    public string? DisplayNote => L.Chinese || NoteEn == null ? Note : NoteEn;
 }
 
 public sealed class SoftwareCatalog
