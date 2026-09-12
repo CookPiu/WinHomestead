@@ -94,6 +94,29 @@ public sealed class FakePower : IPower
     public int SetCalls;
     public bool IsHibernateEnabled() => Hibernate;
     public void SetHibernate(bool enabled) { Hibernate = enabled; SetCalls++; }
+
+    /// <summary>默认是 Windows 的出厂值：关屏 10/5 分钟，睡眠 30/15 分钟。设为 null 模拟读不到。</summary>
+    public PowerTimeouts? Timeouts = new(600, 300, 1800, 900);
+    public readonly List<(int Monitor, int Standby)> AcTimeoutCalls = new();
+    public PowerTimeouts? ReadTimeouts() => Timeouts;
+    public void SetAcTimeouts(int monitorMinutes, int standbyMinutes)
+    {
+        AcTimeoutCalls.Add((monitorMinutes, standbyMinutes));
+        if (Timeouts != null) Timeouts = Timeouts with { MonitorAcSeconds = monitorMinutes * 60, StandbyAcSeconds = standbyMinutes * 60 };
+    }
+}
+
+public sealed class FakeDisplay : IDisplay
+{
+    /// <summary>默认是一台高刷屏跑在 60 Hz 上。设为 null 模拟读不到显示模式。</summary>
+    public DisplayMode? Mode = new(2560, 1600, 60, 165);
+    public readonly List<int> SetCalls = new();
+    public DisplayMode? Primary() => Mode;
+    public void SetRefreshRate(int hz)
+    {
+        SetCalls.Add(hz);
+        if (Mode != null) Mode = Mode with { Hz = hz };
+    }
 }
 
 public sealed class FakeFileSystem : IFileSystem
@@ -174,7 +197,14 @@ public static class TestData
 
     public static (ExecutionServices Services, FakeRegistry Reg, FakeEnvironment Env, FakeShell Shell, FakeFileSystem Fs, FakePower Power, FakeStorage Storage) ServicesFull()
     {
-        var reg = new FakeRegistry(); var env = new FakeEnvironment(); var shell = new FakeShell(); var fs = new FakeFileSystem(); var power = new FakePower(); var storage = new FakeStorage();
-        return (new ExecutionServices(reg, env, shell, fs, power, storage, NullLogger.Instance), reg, env, shell, fs, power, storage);
+        var (svc, reg, env, shell, fs, power, storage, _) = ServicesWithDisplay();
+        return (svc, reg, env, shell, fs, power, storage);
+    }
+
+    public static (ExecutionServices Services, FakeRegistry Reg, FakeEnvironment Env, FakeShell Shell, FakeFileSystem Fs, FakePower Power, FakeStorage Storage, FakeDisplay Display) ServicesWithDisplay()
+    {
+        var reg = new FakeRegistry(); var env = new FakeEnvironment(); var shell = new FakeShell(); var fs = new FakeFileSystem();
+        var power = new FakePower(); var storage = new FakeStorage(); var display = new FakeDisplay();
+        return (new ExecutionServices(reg, env, shell, fs, power, storage, display, NullLogger.Instance), reg, env, shell, fs, power, storage, display);
     }
 }

@@ -101,11 +101,34 @@ public interface IStorage
     long LargestFreeExtent(int diskNumber);
 }
 
-/// <summary>电源配置。首版只覆盖休眠开关（powercfg /hibernate）。</summary>
+/// <summary>当前电源方案的四个空闲超时，单位秒。0 表示"从不"。</summary>
+public sealed record PowerTimeouts(int MonitorAcSeconds, int MonitorDcSeconds, int StandbyAcSeconds, int StandbyDcSeconds)
+{
+    public int MonitorAcMinutes => MonitorAcSeconds / 60;
+    public int StandbyAcMinutes => StandbyAcSeconds / 60;
+}
+
+/// <summary>电源配置：休眠开关与当前方案的空闲超时。</summary>
 public interface IPower
 {
     bool IsHibernateEnabled();
     void SetHibernate(bool enabled);
+    /// <summary>读当前活动电源方案的四个超时；读不到返回 null。</summary>
+    PowerTimeouts? ReadTimeouts();
+    /// <summary>只改交流电源（插电）下的关屏与睡眠超时，单位分钟；0 表示从不。电池侧不动。</summary>
+    void SetAcTimeouts(int monitorMinutes, int standbyMinutes);
+}
+
+/// <summary>主显示器当前的分辨率与刷新率，以及同一分辨率下驱动报告的最高刷新率。</summary>
+public sealed record DisplayMode(int Width, int Height, int Hz, int MaxHz);
+
+/// <summary>显示模式。只碰主显示器的刷新率，不改分辨率与缩放。</summary>
+public interface IDisplay
+{
+    /// <summary>读不到返回 null。</summary>
+    DisplayMode? Primary();
+    /// <summary>把主显示器切到指定刷新率并写进注册表持久化；分辨率与色深保持不变。</summary>
+    void SetRefreshRate(int hz);
 }
 
 public interface IJournal

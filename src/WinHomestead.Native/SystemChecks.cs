@@ -42,7 +42,7 @@ public sealed class SystemChecks
         => new[]
         {
             BitLocker(), AntiVirus(), WindowsUpdate(), PointInTimeRestore(snapshot),
-            OemSoftware(snapshot?.Manufacturer ?? string.Empty), StartupApps(), RefreshRate(), Battery(snapshot),
+            OemSoftware(snapshot?.Manufacturer ?? string.Empty), StartupApps(), Battery(snapshot),
             DefaultApps(), RegionAndTimeZone(),
         };
 
@@ -269,25 +269,6 @@ public sealed class SystemChecks
             return new SystemCheck(title, "未知", Severity.Info, "读取启动项失败：" + ex.Message,
                 "可自行在设置的“启动应用”里查看。", uri, "打开启动应用");
         }
-    }
-
-    // ---- 刷新率 ----
-
-    private static SystemCheck RefreshRate()
-    {
-        const string title = "屏幕刷新率";
-        const string uri = "ms-settings:display-advanced";
-        var mode = DisplayInfo.Primary();
-        if (mode == null)
-            return new SystemCheck(title, "未知", Severity.Info, "读不到当前的显示模式。",
-                "可到“高级显示设置”里自行确认刷新率是否已经拉满。", uri, "打开高级显示设置");
-
-        var detail = $"主显示器 {mode.Width}×{mode.Height}，当前 {mode.Hz} Hz，这个分辨率下最高 {mode.MaxHz} Hz。";
-        return mode.MaxHz > mode.Hz
-            ? new SystemCheck(title, $"{mode.Hz} Hz（可到 {mode.MaxHz} Hz）", Severity.Warning, detail,
-                "高刷屏出厂经常跑在 60 Hz，要自己到“高级显示设置”里选最高值。笔记本用电池时系统可能主动降回 60 Hz，那是省电策略，不是没设好。",
-                uri, "打开高级显示设置")
-            : new SystemCheck(title, $"{mode.Hz} Hz", Severity.Ok, detail, "已经是这个分辨率下的最高刷新率。", uri, "打开高级显示设置");
     }
 
     // ---- 电池健康 ----

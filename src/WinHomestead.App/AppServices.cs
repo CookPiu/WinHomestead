@@ -38,7 +38,8 @@ public sealed class AppServices
         var logger = new FileLogger(store.LogDir);
         var registry = new WindowsRegistry();
         var shell = new WindowsShell();
-        var execution = new ExecutionServices(registry, new WindowsEnvironment(registry), shell, new WindowsFileSystem(), new WindowsPower(registry), new WmiStorage(logger), logger);
+        var execution = new ExecutionServices(registry, new WindowsEnvironment(registry), shell, new WindowsFileSystem(),
+            new WindowsPower(registry), new WmiStorage(logger), new WindowsDisplay(logger), logger);
         var collector = new SnapshotCollector(registry, shell, logger);
         var coordinator = new ExecutionCoordinator(execution, store);
         var runner = new SessionRunner(execution, new WmiSystemRestore(logger), store);

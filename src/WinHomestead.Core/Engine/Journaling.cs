@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using WinHomestead.Core.Abstractions;
 using WinHomestead.Core.Models;
 
@@ -131,5 +132,36 @@ internal sealed class JournalingPower : IPower
         if (old == enabled) return;
         _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.Power, "hibernate", old ? "1" : "0", enabled ? "1" : "0"));
         _inner.SetHibernate(enabled);
+    }
+
+    public PowerTimeouts? ReadTimeouts() => _inner.ReadTimeouts();
+
+    public void SetAcTimeouts(int monitorMinutes, int standbyMinutes)
+    {
+        var old = _inner.ReadTimeouts();
+        var oldValue = old == null ? null : $"{old.MonitorAcMinutes};{old.StandbyAcMinutes}";
+        _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.Power, "ac_timeouts", oldValue, $"{monitorMinutes};{standbyMinutes}"));
+        _inner.SetAcTimeouts(monitorMinutes, standbyMinutes);
+    }
+}
+
+/// <summary>刷新率改动记进 journal，回滚时切回原值。</summary>
+internal sealed class JournalingDisplay : IDisplay
+{
+    private readonly IDisplay _inner;
+    private readonly IJournal _journal;
+    private readonly string _taskId;
+
+    public JournalingDisplay(IDisplay inner, IJournal journal, string taskId) { _inner = inner; _journal = journal; _taskId = taskId; }
+
+    public DisplayMode? Primary() => _inner.Primary();
+
+    public void SetRefreshRate(int hz)
+    {
+        var old = _inner.Primary();
+        if (old != null && old.Hz == hz) return;
+        _journal.Record(new JournalEntry(_taskId, DateTime.Now, JournalKind.Display, "refresh_rate",
+            old?.Hz.ToString(CultureInfo.InvariantCulture), hz.ToString(CultureInfo.InvariantCulture)));
+        _inner.SetRefreshRate(hz);
     }
 }

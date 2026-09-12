@@ -164,6 +164,8 @@ public sealed partial class CategoryViewModel : ObservableObject
             "path" => "磁盘与路径",
             "env" => "开发缓存",
             "ui" => "界面与交互",
+            "display" => "显示",
+            "power" => "电源",
             "ime" => "中文输入法",
             "promo" => "去推送",
             "gpu" => "显卡",

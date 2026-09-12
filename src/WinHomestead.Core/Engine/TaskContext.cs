@@ -10,9 +10,9 @@ namespace WinHomestead.Core.Engine;
 /// <summary>原生服务集合。Runner 与 Planner 用它为每个任务创建 TaskContext。</summary>
 public sealed class ExecutionServices
 {
-    public ExecutionServices(IRegistry registry, IEnvironment environment, IShell shell, IFileSystem fileSystem, IPower power, IStorage storage, ILogger logger)
+    public ExecutionServices(IRegistry registry, IEnvironment environment, IShell shell, IFileSystem fileSystem, IPower power, IStorage storage, IDisplay display, ILogger logger)
     {
-        Registry = registry; Environment = environment; Shell = shell; FileSystem = fileSystem; Power = power; Storage = storage; Logger = logger;
+        Registry = registry; Environment = environment; Shell = shell; FileSystem = fileSystem; Power = power; Storage = storage; Display = display; Logger = logger;
     }
 
     public IRegistry Registry { get; }
@@ -21,6 +21,7 @@ public sealed class ExecutionServices
     public IFileSystem FileSystem { get; }
     public IPower Power { get; }
     public IStorage Storage { get; }
+    public IDisplay Display { get; }
     public ILogger Logger { get; }
 
     public TaskContext CreateContext(string taskId, EnvironmentSnapshot snapshot, Answers answers, IJournal journal, CancellationToken ct)
@@ -44,6 +45,7 @@ public sealed class TaskContext
         Shell = new JournalingShell(raw.Shell, journal, taskId);
         FileSystem = new JournalingFileSystem(raw.FileSystem, journal, taskId);
         Power = new JournalingPower(raw.Power, journal, taskId);
+        Display = new JournalingDisplay(raw.Display, journal, taskId);
         Storage = raw.Storage;
         Log = raw.Logger;
     }
@@ -58,6 +60,7 @@ public sealed class TaskContext
     public IShell Shell { get; }
     public IFileSystem FileSystem { get; }
     public IPower Power { get; }
+    public IDisplay Display { get; }
     /// <summary>分区操作不可撤销，不经 journal。</summary>
     public IStorage Storage { get; }
     public ILogger Log { get; }
@@ -96,6 +99,16 @@ public sealed class TaskContext
                 case JournalKind.Power:
                     if (e.Key == "hibernate" && e.OldValue != null)
                         _raw.Power.SetHibernate(e.OldValue == "1");
+                    else if (e.Key == "ac_timeouts" && e.OldValue != null)
+                    {
+                        var t = e.OldValue.Split(';');
+                        if (t.Length == 2 && int.TryParse(t[0], out var monitor) && int.TryParse(t[1], out var standby))
+                            _raw.Power.SetAcTimeouts(monitor, standby);
+                    }
+                    break;
+                case JournalKind.Display:
+                    if (e.Key == "refresh_rate" && e.OldValue != null && int.TryParse(e.OldValue, out var hz))
+                        _raw.Display.SetRefreshRate(hz);
                     break;
             }
         }

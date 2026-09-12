@@ -137,6 +137,11 @@ public static class TaskCatalog
                 OnOff(Dword(@"Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", 0), "广告 ID"),
                 OnOff(Dword(@"Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", 0), "定制体验")),
 
+            // ---- 显示与电源 ----
+            new RefreshRateTask(),
+            new FastStartupOffTask(),
+            new AcTimeoutsTask(),
+
             // ---- GPU ----
             new HagsTask(),
 
