@@ -44,6 +44,16 @@ public sealed class SessionRunner
         _store.SaveState(new AppState(SessionId, false));
     }
 
+    /// <summary>
+    /// 给子页用的带 journal 上下文：启动项这类"一次改一条、没有 Detect/Verify 循环"的操作不走 TaskRunner，
+    /// 但写进去的原值要和主列表进同一份 journal，执行记录和回滚才看得到它们。
+    /// </summary>
+    public TaskContext CreateJournaledContext(string taskId, EnvironmentSnapshot snapshot, Answers answers)
+    {
+        lock (_gate) _journal ??= new FileJournal(_store.PathFor($"journal-{SessionId}.jsonl"));
+        return _services.CreateContext(taskId, snapshot, answers, _journal, CancellationToken.None);
+    }
+
     /// <summary>只在会话第一次执行前尝试一次；失败仅告警。</summary>
     public void EnsureRestorePoint(IProgress<string>? status)
     {

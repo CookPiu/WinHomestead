@@ -42,7 +42,7 @@ public sealed class SystemChecks
         => new[]
         {
             BitLocker(), AntiVirus(), WindowsUpdate(), PointInTimeRestore(snapshot),
-            OemSoftware(snapshot?.Manufacturer ?? string.Empty), StartupApps(), Battery(snapshot),
+            OemSoftware(snapshot?.Manufacturer ?? string.Empty), Battery(snapshot),
             DefaultApps(), RegionAndTimeZone(),
         };
 
@@ -191,7 +191,7 @@ public sealed class SystemChecks
 
             return new SystemCheck(title, $"{hits.Count} 个", Severity.Info,
                 "匹配到：" + string.Join("、", hits.Take(12)) + (hits.Count > 12 ? " 等" : string.Empty),
-                "这些是整机厂商预装的管家、驱动助手一类程序。驱动更新工具可以留着，弹广告和加速器一类的用不上就卸载。本工具不代为卸载，请自行在应用列表里处理。",
+                "这些是整机厂商预装的管家、驱动助手一类程序。驱动更新工具可以留着，弹广告和加速器一类的用不上就卸载。本工具不代为卸载，请自行在应用列表里处理；只是不想让它们开机自启的话，去\"启动项\"页逐项关掉即可。",
                 uri, "打开应用列表");
         }
         catch (Exception ex)
@@ -233,42 +233,6 @@ public sealed class SystemChecks
         return new SystemCheck(title, bigEnough ? "多半已默认开启" : "需自行确认", Severity.Info,
             detail + "26H2 起 Point-in-time restore 默认开启，系统卷 200 GB 以上会自动启用。",
             advice, uri, "打开恢复设置");
-    }
-
-    // ---- 启动项 ----
-
-    /// <summary>Win32_StartupCommand 只覆盖注册表 Run 键与“启动”文件夹，不含任务计划和服务。</summary>
-    private SystemCheck StartupApps()
-    {
-        const string title = "开机启动项";
-        const string uri = "ms-settings:startupapps";
-        try
-        {
-            var names = new List<string>();
-            using var s = new ManagementObjectSearcher("SELECT Name FROM Win32_StartupCommand");
-            foreach (ManagementObject o in s.Get())
-                using (o)
-                {
-                    var n = o["Name"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(n)) names.Add(n!.Trim());
-                }
-
-            var distinct = names.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
-            if (distinct.Count == 0)
-                return new SystemCheck(title, "未发现", Severity.Ok, "没有读到随开机启动的程序。", "无需处理。", uri, "打开启动应用");
-
-            return new SystemCheck(title, $"{distinct.Count} 项", distinct.Count >= 8 ? Severity.Warning : Severity.Info,
-                "开机自启：" + string.Join("、", distinct.Take(15)) + (distinct.Count > 15 ? " 等" : string.Empty),
-                "新机的自启项多半来自整机厂商的管家与更新助手，和上一项的预装软件是同一批东西。只留输入法、网盘这类确实要开机就在的，" +
-                "其余在“启动应用”里关掉——关掉只是不随开机启动，程序本身还在。本工具不代改。",
-                uri, "打开启动应用");
-        }
-        catch (Exception ex)
-        {
-            _log.Warn("启动项检查失败: " + ex.Message);
-            return new SystemCheck(title, "未知", Severity.Info, "读取启动项失败：" + ex.Message,
-                "可自行在设置的“启动应用”里查看。", uri, "打开启动应用");
-        }
     }
 
     // ---- 电池健康 ----

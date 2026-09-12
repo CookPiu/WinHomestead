@@ -139,6 +139,7 @@ public static class RegistryValueCodec
         {
             RegKind.DWord => Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
             RegKind.QWord => Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture),
+            RegKind.Binary => value is byte[] bytes ? BitConverter.ToString(bytes).Replace("-", string.Empty) : value.ToString(),
             _ => value.ToString(),
         };
     }
@@ -147,6 +148,15 @@ public static class RegistryValueCodec
     {
         RegKind.DWord => unchecked((int)long.Parse(text, CultureInfo.InvariantCulture)),
         RegKind.QWord => long.Parse(text, CultureInfo.InvariantCulture),
+        RegKind.Binary => FromHex(text),
         _ => text,
     };
+
+    private static byte[] FromHex(string text)
+    {
+        var bytes = new byte[text.Length / 2];
+        for (var i = 0; i < bytes.Length; i++)
+            bytes[i] = Convert.ToByte(text.Substring(i * 2, 2), 16);
+        return bytes;
+    }
 }

@@ -42,6 +42,7 @@
       <StackPanel Grid.Column="1" Orientation="Horizontal">
         <ui:Button Content="{Binding ReportLabel}" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowReportCommand}" />
         <ui:Button Content="软件推荐" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowSoftwareCommand}" />
+        <ui:Button Content="启动项" Appearance="Secondary" Margin="0,0,6,0" Command="{Binding ShowStartupCommand}" />
         <ui:Button Content="检查项" Appearance="Secondary" Command="{Binding ShowCheckupCommand}" />
       </StackPanel>
     </Grid>

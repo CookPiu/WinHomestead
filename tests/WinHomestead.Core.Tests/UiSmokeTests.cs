@@ -39,6 +39,16 @@ public class UiSmokeTests
                 Render(new ReportView { DataContext = new ReportViewModel(services, () => { }) });
                 Render(new SoftwareView { DataContext = new SoftwareViewModel(services, () => { }) });
                 Render(new CheckupView { DataContext = new CheckupViewModel(services, () => { }) });
+                Render(new StartupView { DataContext = new StartupViewModel(services, () => { }) });
+
+                // 每个子页都必须有 DataTemplate：MainViewModel 把 ViewModel 直接塞进 ContentControl，
+                // 漏了映射的页面会原样显示类名而不是界面，而上面的 Render 是直接 new 视图，测不出这个
+                foreach (var vmType in new[]
+                         {
+                             typeof(HomeViewModel), typeof(ReportViewModel), typeof(SoftwareViewModel),
+                             typeof(CheckupViewModel), typeof(StartupViewModel),
+                         })
+                    Assert.True(app.Resources.Contains(new DataTemplateKey(vmType)), vmType.Name + " 没有对应的 DataTemplate，页面会显示成类名");
 
                 // 黄色提示条靠 InfoBar 自带的关闭按钮，它走 TemplateButtonCommand 并把 IsOpen 置回 false；
                 // 这是第三方控件的行为，钉在测试里，换版本时能第一时间发现

@@ -63,6 +63,7 @@ public sealed class WindowsRegistry : IRegistry
     {
         RegKind.DWord => unchecked((int)System.Convert.ToInt64(value, CultureInfo.InvariantCulture)),
         RegKind.QWord => System.Convert.ToInt64(value, CultureInfo.InvariantCulture),
+        RegKind.Binary => value as byte[] ?? Array.Empty<byte>(),
         _ => value.ToString() ?? string.Empty,
     };
 
@@ -72,6 +73,7 @@ public sealed class WindowsRegistry : IRegistry
         RegistryValueKind.QWord => RegKind.QWord,
         RegistryValueKind.String => RegKind.String,
         RegistryValueKind.ExpandString => RegKind.ExpandString,
+        RegistryValueKind.Binary => RegKind.Binary,
         _ => null,
     };
 
@@ -80,6 +82,7 @@ public sealed class WindowsRegistry : IRegistry
         RegKind.DWord => RegistryValueKind.DWord,
         RegKind.QWord => RegistryValueKind.QWord,
         RegKind.ExpandString => RegistryValueKind.ExpandString,
+        RegKind.Binary => RegistryValueKind.Binary,
         _ => RegistryValueKind.String,
     };
 }

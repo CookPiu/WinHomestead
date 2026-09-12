@@ -5,7 +5,7 @@ using WinHomestead.Core.Models;
 namespace WinHomestead.Core.Abstractions;
 
 public enum RegRoot { CurrentUser, LocalMachine }
-public enum RegKind { DWord, QWord, String, ExpandString }
+public enum RegKind { DWord, QWord, String, ExpandString, Binary }
 
 public interface IRegistry
 {
