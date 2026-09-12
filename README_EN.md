@@ -20,6 +20,10 @@ WinHomestead collects all of it into one list: **UI and interaction, Chinese IME
 
 No questionnaire, no "optimize everything" button, no black box. Every item states what it changes, why it's worth changing, and what the side effects are.
 
+<div align="center">
+  <img src="docs/images/screenshot.png" alt="Main list: categories on the left, each item showing its current and target value" width="920">
+</div>
+
 > [!IMPORTANT]
 > Early release (0.2.x). The published binary is **not code-signed**, so SmartScreen will warn on first run. The tool modifies system settings — every item is reversible and a restore point is created before the first change, but try it on a VM or a machine you don't care about first.
 
